@@ -10,6 +10,7 @@ An independent, fully working portfolio project: 10 RTSP camera streams → pers
 ## Quick start (one command)
 
 **Prerequisites:**
+- Git + [Git LFS](https://git-lfs.com/) (the model weights are stored with LFS)
 - Python ≥ 3.10 + [uv](https://docs.astral.sh/uv/) (not pip/poetry)
 - Docker Desktop running (or `dockerd` on Linux)
 - ffmpeg on `PATH` (for clip processing)
@@ -18,9 +19,11 @@ An independent, fully working portfolio project: 10 RTSP camera streams → pers
 - ~10 GB free disk space
 
 ```bash
+git lfs install
 git clone https://github.com/BasimBashir/PPE-Kit-Detection.git && cd PPE-Kit-Detection
 python scripts/start_demo.py
 ```
+Cloned before installing Git LFS? Run `git lfs pull` in the repo — otherwise `models/*.pt` are small pointer files and the script stops with that hint.
 
 The script is **idempotent** — every step is skipped when already done:
 1. Prerequisite check (uv, docker, ffmpeg, npm, GPU)
@@ -28,7 +31,7 @@ The script is **idempotent** — every step is skipped when already done:
 3. `docker compose up -d` — PostgreSQL, MediaMTX (RTSP), Toxiproxy (fault injection), Prometheus, Grafana; waits for PostgreSQL healthy
 4. Backend dependencies (`uv sync`)
 5. Demo clips → `data/streams/` (Pexels stock footage via `scripts/demo/fetch_demo_videos.py`)
-6. Model weights in `models/`: either download from `--weights-url` (a `.zip` with `yolo26s-pose.pt`, `ppe_yolo26s.pt`, `head_cls_yolo26n.pt`) or train from the CC0 dataset (~30–40 min on RTX 3090)
+6. Model weights in `models/`: already in the clone via Git LFS (`yolo26s-pose.pt`, `ppe_yolo26s.pt`, `head_cls_yolo26n.pt`); if missing, downloaded from `--weights-url` (a `.zip` with the three files) or trained from the CC0 dataset (~30–40 min on RTX 3090)
 7. Dashboard build (`npm ci && npm run build`)
 8. Start API on **http://127.0.0.1:8000** — the app then starts the RTSP simulator itself
 
@@ -38,7 +41,7 @@ It prints the admin password (stored in `.env` as `PPE_ADMIN_PASSWORD`).
 | Flag | Effect |
 |---|---|
 | `--streams N` | Start with N simulated cameras (1–10, default 10, or 2 on CPU) |
-| `--weights-url URL` | Zip URL with the three `.pt` files (skips training) |
+| `--weights-url URL` | Zip URL with the three `.pt` files, used only if they are missing from `models/` |
 | `--cpu` | Force CPU inference (defaults to 2 streams × 2 FPS) |
 | `--work-dir PATH` | Dataset/training scratch space (default `~/ppe-work`) |
 | `--no-start` | Prepare everything but do not start the app |
@@ -99,7 +102,7 @@ flowchart LR
 | `configs/` | `*.example.yaml` (copy to `*.yaml` to override — local overrides are git-ignored) |
 | `docs/` | system design, ADRs, benchmarks, testing, operations runbooks + risk register, ML model/data cards, demo script |
 | `deployments/` | Docker configs (Prometheus rules, Grafana, MediaMTX, Toxiproxy), Linux and edge profiles |
-| `models/` | Weights (git-ignored) — see `models/README.md` for how to obtain/reproduce |
+| `models/` | Deployed weights (Git LFS) — see `models/README.md` for how to reproduce them |
 | `data/` | Demo clips (git-ignored) — populated by `scripts/demo/fetch_demo_videos.py` |
 
 ---

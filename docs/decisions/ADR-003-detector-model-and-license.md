@@ -27,7 +27,8 @@ AGPL obligations apply to anyone running a modified version as a network service
 Ultralytics Enterprise licence or a model swap (the Detector adapter keeps that change inside `app/inference`).
 
 ## Consequences
-Weights are not committed; `models/README.md` documents how to reproduce them with `scripts/dataset/*`.
+The three deployed weights are committed via Git LFS (AGPL-3.0, like the repo); `models/README.md` documents how to
+reproduce them with `scripts/dataset/*`.
 
 ## Evidence / benchmark
 Test split (500 images): helmet P 0.918 / R 0.938 / mAP50 0.964; head P 0.892 / R 0.922 / mAP50 0.937 (docs/ml/ppe_yolo26s_eval.json). Frozen-backbone ablation gave no gain (docs/ml/ppe_yolo26s_freeze10_eval.json). Classifier top-1 0.973 (docs/ml/head_classifier_eval.json). Cascade ablation and latency: docs/benchmarks/README.md. Observed limitation: caps/head wraps accepted as hard hats on demo footage (risk R16).

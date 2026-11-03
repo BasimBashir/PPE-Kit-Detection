@@ -39,7 +39,7 @@ Source: [`diagrams/inference-data-flow.mmd`](diagrams/inference-data-flow.mmd)
 `Detector.detect(frames) -> list[FrameDetections]`; `HeadClassifier.classify(crops)`; `models.backend: mock` for GPU-less tests.
 
 ## Data ownership
-Weights in `models/` (not committed), versions recorded per event and in `model_versions`.
+Weights in `models/` (Git LFS), versions recorded per event and in `model_versions`.
 
 ## Concurrency / process boundaries
 Inference thread only; FP16 on CUDA.

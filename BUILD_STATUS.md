@@ -64,7 +64,7 @@ Licence: AGPL-3.0-or-later (user decision). Interview mapping: [docs/product/int
 - The worker's RTSP behaviour is tested live (fault/load campaigns), not by a dedicated pytest.
 
 ## Next exact tasks
-1. Owner: attach `models/*.pt` (zip) as a GitHub release asset and pass its URL to `start_demo.py --weights-url`.
+1. Owner: reset demo data and record the demo video (weights are now in the repo via Git LFS).
 2. Reset demo data before recording (`docker compose down -v`, delete `evidence/` and `spool/`), then follow
    docs/demo/demo-script.md.
 3. Hard-negative data (caps, hoods, helmets in hand/on ground) + fine-tune; labelled clips for event-level recall.

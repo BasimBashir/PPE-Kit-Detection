@@ -6,7 +6,7 @@ Idempotent - every step is skipped when already done:
   3. docker compose up -d (PostgreSQL, MediaMTX, Toxiproxy, Prometheus, Grafana) and wait for PostgreSQL
   4. backend dependencies                       (uv sync)
   5. demo clips -> STREAMS_DIR                  (scripts/demo/fetch_demo_videos.py, Pexels)
-  6. model weights in models/: download (--weights-url, a .zip with the three .pt files) or train on the GPU
+  6. model weights in models/: committed via Git LFS; else download (--weights-url, a .zip) or train on the GPU
   7. dashboard build                            (npm ci && npm run build)
   8. start the app on http://127.0.0.1:8000 - in demo mode it starts the RTSP simulator itself
 Stop with Ctrl+C (the app stops the simulator it started); `docker compose down` stops the services.
@@ -137,6 +137,10 @@ def main() -> int:
 
     step("6/8 model weights")
     models = ROOT / "models"
+    pointers = [w for w in WEIGHTS if (models / w).exists() and (models / w).stat().st_size < 1024]
+    if pointers:  # cloned without Git LFS: the files are ~130-byte LFS pointers, not weights
+        print(f"   {', '.join(pointers)}: Git LFS pointer files - run `git lfs install && git lfs pull`, then retry")
+        return 1
     if all((models / w).exists() for w in WEIGHTS[1:]):
         print("   ppe_yolo26s.pt and head_cls_yolo26n.pt present")
     elif a.weights_url:

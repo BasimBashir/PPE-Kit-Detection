@@ -36,6 +36,10 @@ spool/
 runs/
 *.mp4
 *.pt
+# deployed weights are committed via Git LFS (.gitattributes)
+!models/yolo26s-pose.pt
+!models/ppe_yolo26s.pt
+!models/head_cls_yolo26n.pt
 *.onnx
 *.engine
 
