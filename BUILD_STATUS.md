@@ -8,7 +8,7 @@ Spec: [PPE_Intelligence_Master_Spec.md](PPE_Intelligence_Master_Spec.md) (full s
 Licence: AGPL-3.0-or-later (user decision). Interview mapping: [docs/product/interview-baseline.md](docs/product/interview-baseline.md).
 
 ## Session 2026-11-02 - state at end of session
-- Git: repository initialised on `main`; **nothing committed yet** (awaiting the owner's go-ahead).
+- Git: published 2026-11-03 at https://github.com/BasimBashir/PPE-Kit-Detection (`main`).
 - Running: Docker services, simulator, application (for the soak test).
 - Environment: Windows 11, i5-12400F, RTX 3090, venv outside OneDrive (`UV_PROJECT_ENVIRONMENT`).
 
@@ -64,8 +64,7 @@ Licence: AGPL-3.0-or-later (user decision). Interview mapping: [docs/product/int
 - The worker's RTSP behaviour is tested live (fault/load campaigns), not by a dedicated pytest.
 
 ## Next exact tasks
-1. Owner: review, then commit + push to a public GitHub repo; attach `models/*.pt` as a release asset and pass its URL
-   to `start_demo.py --weights-url`.
+1. Owner: attach `models/*.pt` (zip) as a GitHub release asset and pass its URL to `start_demo.py --weights-url`.
 2. Reset demo data before recording (`docker compose down -v`, delete `evidence/` and `spool/`), then follow
    docs/demo/demo-script.md.
 3. Hard-negative data (caps, hoods, helmets in hand/on ground) + fine-tune; labelled clips for event-level recall.

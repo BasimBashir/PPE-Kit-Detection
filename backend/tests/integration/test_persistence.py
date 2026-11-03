@@ -67,7 +67,8 @@ def make_service(sf, tmp_path, cfg=None, disk_free=10**12):
                              disk_usage=lambda _p: SimpleNamespace(free=disk_free))
     note = Notify()
     svc = EventService(sf, ev_store, EventSpool(tmp_path / "spool"), cfg or AlertsConfig(cooldown_s=60),
-                       run_id="run1", channels=["dashboard"], notify=note, replay_interval_s=3600)
+                       run_id="run1", channels=["dashboard"], notify=note,
+                       replay_interval_s=float("inf"))  # no background replay (3600 still fired once if uptime > 1 h)
     svc.start()
     return svc, note, ev_store
 
@@ -145,8 +146,8 @@ def test_db_outage_spools_then_replays_exactly_once(seeded, tmp_path):
     svc.drain()
     assert len(svc.spool.pending()) == 2 and count(seeded, Event) == 0
     assert [n["action"] for n in note] == ["spooled", "spooled"]
-    # 1 failed insert + 1 replay probe; the 2nd event was spooled without waiting on another connect timeout
-    assert calls["attempts"] == 2
+    # 1 failed insert; the open breaker spooled the 2nd event without another connect attempt
+    assert calls["attempts"] == 1
     calls["down"] = False
     assert svc.replay_spool() == 2
     assert svc.replay_spool() == 0
