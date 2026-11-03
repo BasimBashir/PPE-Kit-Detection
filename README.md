@@ -4,9 +4,6 @@ An independent, fully working portfolio project: 10 RTSP camera streams → pers
 
 > Independent portfolio project inspired by a generic on-ship PPE-monitoring design exercise. It is **not** an ALTAVE product, uses no ALTAVE code, data or footage, and makes **no** safety-certification or field-accuracy claim. The demo cameras are **simulated** (stock clips looped through a local RTSP server) and the dashboard says so.
 
-<!-- RESULTS:START -->
-<!-- RESULTS:END -->
-
 ## Quick start (one command)
 
 **Prerequisites:**

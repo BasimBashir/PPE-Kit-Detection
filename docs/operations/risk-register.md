@@ -4,7 +4,7 @@ Owner: project lead. Reviewed: 2026-11-02. Status values: OPEN, MITIGATED (contr
 
 | # | Risk | Impact | Likelihood | Mitigation / control | Verification | Status |
 |---|---|---|---|---|---|---|
-| R1 | Helmet near a person (ground, hand, neighbour) credited as worn | False compliance (missed violation) | Medium | Head ROI from keypoints, IoA + centre-distance + width gates, global greedy matching (ADR-005) | tests/unit/test_association.py hard negatives | OPEN |
+| R1 | Helmet near a person (ground, hand, neighbour) credited as worn | False compliance (missed violation) | Medium | Head ROI from keypoints, IoA + centre-distance + width gates, global greedy matching (ADR-005) | backend/tests/unit/test_ppe_logic.py hard negatives (ground / hand / neighbour) | OPEN |
 | R2 | Occluded / tiny / truncated head classified as "no helmet" | False alert | High | `UNCERTAIN` outcome never votes; visibility gate; classifier only for ambiguous cases | unit tests; demo FP review | OPEN |
 | R3 | Ten streams exceed hardware capacity | Latency, dropped frames | Medium | Latest-frame slots, fair batching, cascade skip, 2/5/10 FPS profiles | docs/benchmarks | OPEN |
 | R4 | RTSP instability | Camera downtime unnoticed | High | Per-camera FSM, frame-age watchdog, backoff+jitter, metrics + alert rules | fault_injection.md: unplug/stall/timeout/refused/NVR restart all recovered | MITIGATED |

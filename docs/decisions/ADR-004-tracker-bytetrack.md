@@ -27,7 +27,9 @@ criterion was added.
 Tracker code is AGPL-3.0 like the detector (no new licence class).
 
 ## Evidence / benchmark
-Tracking ≈ 2-3 ms per frame p95 (docs/benchmarks/results.md). ID switches are not measured online (no ground truth).
+Tracking 1.8-3.0 ms per batch p95 across all load profiles, 2.06 ms at 10 × 5 FPS (`inference_ms.tracking` in
+docs/benchmarks/results/*.json). Independent per-camera numbering: `backend/tests/unit/test_tracking_and_mock.py::
+test_two_trackers_are_independent`. ID switches are not measured online (no ground truth).
 
 ## Follow-up actions
 Measure fragmentation on a labelled clip before considering BoT-SORT.

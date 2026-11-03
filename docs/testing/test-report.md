@@ -1,7 +1,7 @@
 # Test report
 
 **Run date:** 2026-11-02 · **Host:** Windows 11, i5-12400F, RTX 3090, Python 3.12.10, Node 24.16 ·
-**Commit state:** working tree before first commit (see BUILD_STATUS).
+**Commit state:** local runs before the first commit; GitHub Actions CI re-runs backend tests (minus the GPU test), ruff, and the frontend type-check/tests/build on every push to `main` (promtool, alembic check and the live benchmarks are local only).
 
 ## Results (exact commands, actual output)
 | Suite | Command | Result |
@@ -9,7 +9,7 @@
 | Backend unit + integration + GPU | `cd backend && uv run pytest tests -q` (Docker services up) | **77 passed** in 34.0 s |
 | Backend lint | `uv run ruff check backend/app backend/tests scripts` | clean |
 | Frontend types | `cd frontend && npx tsc --noEmit -p .` | clean |
-| Frontend unit | `npx vitest run` | **13 passed** |
+| Frontend unit | `npx vitest run` | **14 passed** |
 | Frontend build | `npm run build` | built (one >500 kB chunk warning from recharts; served locally) |
 | Prometheus rules | `promtool check rules deployments/docker/alert-rules.yml` | SUCCESS: 10 rules |
 | Migrations | `alembic check` | no drift between models and migration |

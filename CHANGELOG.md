@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.1 - 2026-11-03
+- Deployed model weights shipped via Git LFS; `start_demo.py` detects LFS pointer files and prints a `git lfs pull` hint.
+- Fixed an uptime-dependent DB-outage test that failed on fresh CI runners.
+- ADR-005…012 completed to the full template (trade-offs, consequences, evidence, follow-ups) with verified evidence;
+  broken test/report references fixed across docs; README expanded with full setup and usage.
+
 ## 0.1.0 - 2026-11-02
 First complete, measured portfolio release.
 
