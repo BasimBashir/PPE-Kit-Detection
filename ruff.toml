@@ -1,0 +1,7 @@
+extend = "backend/pyproject.toml"
+
+[lint.per-file-ignores]
+"backend/tests/**" = ["S"]
+"backend/app/observability/metrics.py" = ["E501"]
+"backend/app/api/**" = ["B008"]
+"scripts/**" = ["S603", "S607", "S310"]  # ops scripts: fixed args to ffmpeg/docker, localhost URLs

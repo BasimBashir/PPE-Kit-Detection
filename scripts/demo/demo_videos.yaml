@@ -1,0 +1,15 @@
+# Demo footage manifest. All clips: Pexels License (free to use/modify, no attribution required,
+# no redistribution of unaltered copies as stock). Clips are NOT committed; run fetch_demo_videos.py.
+# expected = what a human reviewer sees in the clip (used to judge alert quality, not ground truth labels).
+license: "Pexels License - https://www.pexels.com/license/"
+cameras:
+  - {camera_id: cam01, pexels_id: 13921040, title: "Men working on construction site", expected: mixed}
+  - {camera_id: cam02, pexels_id: 30331740, title: "Construction workers collaborating on site", expected: mixed}
+  - {camera_id: cam03, pexels_id: 11355903, title: "Men working on construction", expected: mostly_no_helmet}
+  - {camera_id: cam04, pexels_id: 10810476, title: "Men working on construction site", expected: compliant}
+  - {camera_id: cam05, pexels_id: 30288948, title: "Assembly line work in motorcycle factory", expected: no_helmet}
+  - {camera_id: cam06, pexels_id: 40142784, title: "Industrial workers in a metal workshop", expected: no_helmet_caps}
+  - {camera_id: cam07, pexels_id: 13569683, title: "Workers talking on construction", expected: compliant}
+  - {camera_id: cam08, pexels_id: 12098511, title: "Workers on construction", expected: compliant}
+  - {camera_id: cam09, pexels_id: 15459709, title: "Factory workers", expected: no_helmet}
+  - {camera_id: cam10, pexels_id: 8964793, title: "People wearing harness having a conversation", expected: compliant}

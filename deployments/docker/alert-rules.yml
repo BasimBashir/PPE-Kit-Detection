@@ -1,0 +1,73 @@
+groups:
+  - name: ppe-intelligence
+    rules:
+      - alert: CameraOffline
+        expr: (camera_connection_state{state="ONLINE"} == 0) and on(camera_id) (camera_connection_state{state="DISABLED"} == 0)
+        for: 30s
+        labels: {severity: warning}
+        annotations:
+          summary: "Camera {{ $labels.camera_id }} not ONLINE for 30s"
+          runbook: docs/operations/camera-offline.md
+      - alert: StaleFrames
+        expr: camera_last_frame_age_seconds > 5
+        for: 15s
+        labels: {severity: warning}
+        annotations:
+          summary: "Camera {{ $labels.camera_id }} last frame is {{ $value | humanizeDuration }} old"
+          runbook: docs/operations/camera-offline.md
+      - alert: LowProcessedFps
+        expr: (camera_processed_fps < on(camera_id) (0.5 * camera_target_fps)) and on(camera_id) (camera_connection_state{state="ONLINE"} == 1)
+        for: 1m
+        labels: {severity: warning}
+        annotations:
+          summary: "Camera {{ $labels.camera_id }} processed FPS below half of target"
+          runbook: docs/operations/high-latency.md
+      - alert: HighFrameAgeAtInference
+        expr: histogram_quantile(0.95, sum by (le) (rate(camera_frame_age_at_inference_seconds_bucket[1m]))) > 1
+        for: 1m
+        labels: {severity: warning}
+        annotations:
+          summary: "P95 frame age at inference above 1 s"
+          runbook: docs/operations/high-latency.md
+      - alert: WorkerDown
+        expr: ppe_worker_up == 0
+        for: 10s
+        labels: {severity: critical}
+        annotations:
+          summary: "Pipeline worker process is down"
+          runbook: docs/operations/start-stop-restart.md
+      - alert: GpuMemoryHigh
+        expr: gpu_memory_used_bytes / gpu_memory_total_bytes > 0.9
+        for: 1m
+        labels: {severity: warning}
+        annotations:
+          summary: "GPU memory above 90%"
+          runbook: docs/operations/high-memory-or-gpu-usage.md
+      - alert: DiskFreeLow
+        expr: disk_free_bytes{path="evidence"} < 2e9
+        for: 1m
+        labels: {severity: warning}
+        annotations:
+          summary: "Evidence volume below 2 GB free"
+          runbook: docs/operations/disk-full.md
+      - alert: DatabaseUnavailable
+        expr: db_up == 0
+        for: 15s
+        labels: {severity: critical}
+        annotations:
+          summary: "Database unavailable; events are being spooled locally"
+          runbook: docs/operations/database-unavailable.md
+      - alert: OutboxBacklog
+        expr: ppe_alert_outbox_pending > 20
+        for: 1m
+        labels: {severity: warning}
+        annotations:
+          summary: "Alert outbox backlog growing ({{ $value }} pending)"
+          runbook: docs/operations/database-unavailable.md
+      - alert: InferenceErrors
+        expr: rate(inference_errors_total[5m]) > 0.1
+        for: 2m
+        labels: {severity: warning}
+        annotations:
+          summary: "Inference error rate elevated"
+          runbook: docs/operations/high-memory-or-gpu-usage.md

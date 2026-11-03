@@ -1,0 +1,15 @@
+flowchart LR
+  F["Batch of latest frames<br/>(≤ 10, one per due camera)"] --> P["yolo26s-pose<br/>persons + 17 keypoints"]
+  P -->|"frames with ≥1 person<br/>(cascade skip otherwise)"| H["ppe_yolo26s<br/>helmet / head"]
+  P --> T["ByteTrack per camera"]
+  T --> Z["ignore zones filter"]
+  Z --> R["head ROI<br/>keypoints → geometry fallback"]
+  H --> M["candidate filter<br/>IoA ≥ 0.5 · centre dist · width ratio"]
+  R --> M
+  M --> G["global greedy matching<br/>(one helmet per person)"]
+  G --> O{"evidence"}
+  O -->|"helmet only"| HE["HELMET"]
+  O -->|"head only"| NH["NO_HELMET"]
+  O -->|"both / neither / not assessable"| A["ambiguous"]
+  A -->|"classifier enabled"| C["yolo26n-cls head crop<br/>p < 0.75 → UNCERTAIN"]
+  A -->|"disabled"| U["UNCERTAIN"]

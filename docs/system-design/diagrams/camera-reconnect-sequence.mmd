@@ -1,0 +1,18 @@
+sequenceDiagram
+  participant SRC as CameraSource
+  participant H as CameraHealth
+  participant WD as Watchdog (2 Hz)
+  participant NVR as RTSP server
+  SRC->>NVR: av.open(url, timeout=(5,5))
+  NVR-->>SRC: frames
+  SRC->>H: on_frame() → ONLINE
+  Note over NVR: camera unplugged / stalled / network fault
+  WD->>H: evaluate(): frame age > 1.5 s → DEGRADED
+  WD->>H: evaluate(): age > 5 s or rate < 10% nominal → OFFLINE (stalled)
+  WD->>SRC: request_reconnect()
+  SRC-->>H: on_error(redacted reason) (404/EOF/timeout → OFFLINE; 401/403/creds → ERROR)
+  loop bounded backoff with jitter (1, 2, 4, 8, 10 s cap)
+    SRC->>NVR: reconnect
+  end
+  NVR-->>SRC: frames
+  SRC->>H: on_frame() → ONLINE, last_recovery_s recorded

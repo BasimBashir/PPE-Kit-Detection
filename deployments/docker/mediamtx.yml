@@ -1,0 +1,26 @@
+# MediaMTX acting as the local NVR for the demo. Credentials are injected via MTX_AUTHINTERNALUSERS_*
+# environment variables from .env (see docker-compose.yml); user 0 = publisher, user 1 = reader.
+logLevel: info
+rtsp: yes
+rtspTransports: [tcp, udp]
+rtspAddress: :8554
+rtmp: no
+hls: no
+webrtc: no
+srt: no
+api: no
+metrics: no
+
+authMethod: internal
+authInternalUsers:
+  - user: publisher
+    pass: ""
+    permissions:
+      - action: publish
+  - user: viewer
+    pass: ""
+    permissions:
+      - action: read
+
+paths:
+  "~^cam\\d+$": {}

@@ -1,0 +1,33 @@
+name: ci
+on: [push, pull_request]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17.11
+        env: {POSTGRES_USER: ppe, POSTGRES_PASSWORD: ci-password, POSTGRES_DB: ppe}
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U ppe" --health-interval 5s --health-retries 10
+    env:
+      POSTGRES_PASSWORD: ci-password
+      RTSP_READ_USER: viewer
+      RTSP_READ_PASS: ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - run: psql postgresql://ppe:ci-password@localhost:5432/ppe -c "CREATE DATABASE ppe_test"
+      # CPU-only torch is enough for unit/integration tests (GPU tests are marked and skipped)
+      - run: cd backend && uv sync
+      - run: uv run --project backend ruff check backend/app backend/tests scripts
+      - run: cd backend && uv run pytest tests -q -m "not gpu" --ignore=tests/integration/test_ultralytics_detector.py
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: 24}
+      - run: cd frontend && npm ci && npm run lint && npx vitest run && npm run build

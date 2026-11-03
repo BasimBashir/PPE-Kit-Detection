@@ -1,0 +1,47 @@
+{
+  "model": "ppe_yolo26s_freeze10",
+  "weights_sha256_12": "c472151bc3f0",
+  "split": "test",
+  "dataset": "C:/Users/mianx/ppe-work/hardhat/yolo/data.yaml",
+  "dataset_license": "CC0-1.0 (Hard Hat Workers via Voxel51/hard-hat-detection)",
+  "evaluated_at": "2026-11-02T18:37:06+0500",
+  "per_class": {
+    "helmet": {
+      "precision": 0.9099,
+      "recall": 0.9395,
+      "mAP50": 0.9644,
+      "mAP50_95": 0.6309
+    },
+    "head": {
+      "precision": 0.8929,
+      "recall": 0.9224,
+      "mAP50": 0.9377,
+      "mAP50_95": 0.6163
+    },
+    "person": {
+      "precision": 0.0563,
+      "recall": 0.0286,
+      "mAP50": 0.0076,
+      "mAP50_95": 0.0035
+    }
+  },
+  "mean": {
+    "precision": 0.6197,
+    "recall": 0.6302,
+    "mAP50": 0.6366,
+    "mAP50_95": 0.4169
+  },
+  "speed_ms_per_image": {
+    "preprocess": 1.299,
+    "inference": 2.528,
+    "loss": 0.0,
+    "postprocess": 1.014
+  },
+  "note": "Image-level detector metrics on 416 px construction images; NOT system-level event recall on site video.",
+  "base_model": "yolo26s.pt",
+  "epochs": 60,
+  "imgsz": 640,
+  "freeze": 10,
+  "seed": 42,
+  "train_minutes": 24.7
+}

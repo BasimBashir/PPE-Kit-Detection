@@ -1,0 +1,11 @@
+C4Context
+title PPE Intelligence - system context
+Person(op, "Operator", "Monitors cameras, acknowledges / resolves violation events")
+Person(admin, "Administrator", "Configures cameras, rules, zones, retention")
+System(ppe, "PPE Intelligence", "Offline hard-hat compliance analytics for ~10 cameras")
+System_Ext(nvr, "NVR / IP cameras", "RTSP streams on the local network (simulated by MediaMTX in the demo)")
+System_Ext(mon, "Prometheus / Grafana", "Local metrics + alert rules (optional)")
+Rel(nvr, ppe, "RTSP (TCP/UDP)")
+Rel(op, ppe, "Dashboard (HTTP + WebSocket)")
+Rel(admin, ppe, "Dashboard / REST")
+Rel(mon, ppe, "scrapes /metrics")

@@ -1,0 +1,23 @@
+flowchart LR
+  subgraph host["Edge host (native process tree)"]
+    API["API process<br/>FastAPI · REST /api/v1 · WS /ws/live<br/>outbox dispatcher · retention · supervisor<br/>serves dashboard (frontend/dist)"]
+    W["Pipeline worker process<br/>ingest threads · scheduler · GPU inference<br/>trackers · PPE FSM · event service"]
+    SIM["RTSP simulator (demo only)<br/>ffmpeg publishers + control API :8890"]
+    API -- "spawn / heartbeats / commands<br/>(mp queues)" --> W
+    W -- "telemetry: status, previews, events" --> API
+    API -- "demo control (HTTP)" --> SIM
+  end
+  subgraph compose["Docker Compose"]
+    PG[("PostgreSQL 17")]
+    MTX["MediaMTX (NVR sim)"]
+    TOX["Toxiproxy (network faults)"]
+    PROM["Prometheus"] --> GRAF["Grafana"]
+  end
+  SIM -- "RTSP publish" --> MTX
+  MTX --> TOX -- "RTSP :185NN" --> W
+  W --> PG
+  API <--> PG
+  W --> EV[("Evidence JPEGs + spool (local disk)")]
+  API --> EV
+  PROM -. "scrape :8000/:9101" .-> API & W
+  UI["Browser dashboard (React)"] <--> API

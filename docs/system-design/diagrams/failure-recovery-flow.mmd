@@ -1,0 +1,8 @@
+flowchart TB
+  F1["Camera / network fault"] --> H1["CameraHealth: DEGRADED → OFFLINE / ERROR"] --> R1["backoff reconnect (≤10 s)"] --> OK["ONLINE"]
+  F2["Decoder exception"] --> R1
+  F3["Inference exception / GPU OOM"] --> H3["batch skipped, inference_errors_total++,<br/>CUDA cache emptied; 3 OOM in 60 s → worker exits"] --> F4
+  F4["Worker crash"] --> H4["Supervisor: exit or 10 s heartbeat loss →<br/>cameras shown unknown, restart with backoff"] --> OK
+  F5["Database outage"] --> H5["worker: circuit breaker + fsync'd spool<br/>API: token cache, live-state metrics, /ready 503"] --> R5["replay with idempotency key"] --> OK2["no lost / duplicate events"]
+  F6["Disk low / full"] --> H6["evidence skipped (evidence_error), event still persisted"]
+  F7["Dashboard disconnect"] --> H7["WS reconnect 1→15 s, fresh snapshot"]

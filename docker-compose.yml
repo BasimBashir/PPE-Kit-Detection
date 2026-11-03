@@ -1,0 +1,68 @@
+# Supporting services for local development / demo. The PPE application itself runs natively on the
+# host (GPU inference on Windows) - see ADR-011. Start: docker compose up -d
+name: ppe-intelligence
+
+services:
+  postgres:
+    image: postgres:17.11
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ppe}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-ppe}
+    ports: ["${POSTGRES_PORT:-5432}:5432"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./deployments/docker/postgres-init.sql:/docker-entrypoint-initdb.d/10-test-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ppe}"]
+      interval: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # RTSP "NVR" simulator. Demo clips are published into it by scripts/demo/rtsp_simulator.py.
+  mediamtx:
+    image: bluenviron/mediamtx:1.21.3
+    environment:
+      MTX_AUTHINTERNALUSERS_0_USER: ${RTSP_PUBLISH_USER:-publisher}
+      MTX_AUTHINTERNALUSERS_0_PASS: ${RTSP_PUBLISH_PASS:?set RTSP_PUBLISH_PASS in .env}
+      MTX_AUTHINTERNALUSERS_1_USER: ${RTSP_READ_USER:-viewer}
+      MTX_AUTHINTERNALUSERS_1_PASS: ${RTSP_READ_PASS:?set RTSP_READ_PASS in .env}
+    volumes:
+      - ./deployments/docker/mediamtx.yml:/mediamtx.yml:ro
+    ports: ["8554:8554"]
+    restart: unless-stopped
+
+  # Network fault injection between the app and the "cameras" (latency, jitter, timeouts, resets).
+  toxiproxy:
+    image: ghcr.io/shopify/toxiproxy:2.13.0
+    command: ["-host=0.0.0.0", "-config=/toxiproxy.json"]
+    volumes:
+      - ./deployments/docker/toxiproxy.json:/toxiproxy.json:ro
+    ports: ["8474:8474", "18501-18510:18501-18510"]
+    depends_on: [mediamtx]
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v3.15.1
+    volumes:
+      - ./deployments/docker/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./deployments/docker/alert-rules.yml:/etc/prometheus/alert-rules.yml:ro
+    ports: ["9090:9090"]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:13.2.5
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in .env}
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+    volumes:
+      - ./deployments/docker/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./deployments/docker/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports: ["3000:3000"]
+    depends_on: [prometheus]
+    restart: unless-stopped
+
+volumes:
+  pgdata:

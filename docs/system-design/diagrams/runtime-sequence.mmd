@@ -1,0 +1,25 @@
+sequenceDiagram
+  autonumber
+  participant CAM as Camera/NVR (RTSP)
+  participant SRC as CameraSource
+  participant SL as LatestFrameSlot
+  participant INF as Inference thread
+  participant FSM as PPE state machine
+  participant EV as EventService
+  participant DB as PostgreSQL
+  participant API as API (dispatcher)
+  participant UI as Dashboard
+  CAM->>SRC: H.264 packets (TCP)
+  SRC->>SRC: decode all, convert at 2x target FPS
+  SRC->>SL: put(frame) (overwrites stale → drop counter)
+  INF->>SL: next_batch() (due cameras, fair order)
+  INF->>INF: pose person → helmet/head → ByteTrack → head-ROI association
+  INF->>FSM: observations (HELMET / NO_HELMET / UNCERTAIN)
+  FSM-->>INF: CONFIRMED_NON_COMPLIANT (12 of last 15 decisive)
+  INF->>EV: submit_confirmed(violation, masked frame)
+  EV->>EV: dedupe (episode key, cooldown, spatial) + evidence JPEG
+  EV->>DB: INSERT event + alert_outbox (one transaction, ON CONFLICT DO NOTHING)
+  EV-->>API: telemetry nudge {event created}
+  API->>DB: claim outbox rows (SKIP LOCKED, lease)
+  API->>UI: WS event_created
+  UI-->>API: event_rendered ack (persist→render latency)

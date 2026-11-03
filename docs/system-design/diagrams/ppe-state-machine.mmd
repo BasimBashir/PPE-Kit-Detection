@@ -1,0 +1,12 @@
+stateDiagram-v2
+  [*] --> UNKNOWN
+  UNKNOWN --> COMPLIANT: ≥3 of last 5 decisive = HELMET and latest = HELMET
+  UNKNOWN --> SUSPECTED_NON_COMPLIANT: 2 consecutive NO_HELMET (new episode)
+  COMPLIANT --> SUSPECTED_NON_COMPLIANT: 2 consecutive NO_HELMET
+  SUSPECTED_NON_COMPLIANT --> CONFIRMED_NON_COMPLIANT: 12 of last 15 decisive NO_HELMET (count) / duration rule
+  SUSPECTED_NON_COMPLIANT --> COMPLIANT: helmet verified
+  SUSPECTED_NON_COMPLIANT --> UNKNOWN: UNCERTAIN share ≥ 60% (same episode continues)
+  CONFIRMED_NON_COMPLIANT --> CONFIRMED_NON_COMPLIANT: violation continues / UNCERTAIN (no flapping)
+  CONFIRMED_NON_COMPLIANT --> CLEARED: ≥8 of last 10 decisive HELMET, or track lost > 3 s
+  CLEARED --> COMPLIANT: helmet verified
+  CLEARED --> SUSPECTED_NON_COMPLIANT: new episode (cooldown may reopen the old event)

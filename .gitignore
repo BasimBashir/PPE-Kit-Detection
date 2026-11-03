@@ -1,0 +1,45 @@
+# secrets
+.env
+*.pem
+
+# local editor / agent settings (machine-specific, not project config)
+.claude/
+
+# python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# node
+node_modules/
+frontend/dist/
+frontend/test-results/
+frontend/playwright-report/
+
+# large / private artefacts (see models/README.md, data/README.md)
+models/*
+!models/README.md
+!models/.gitkeep
+data/*
+!data/README.md
+!data/.gitkeep
+!data/samples/
+data/samples/*
+!data/samples/.gitkeep
+evidence/*
+!evidence/.gitkeep
+spool/
+runs/
+*.mp4
+*.pt
+*.onnx
+*.engine
+
+# benchmark raw dumps are committed; scratch output is not
+docs/benchmarks/scratch/
+configs/*.yaml
+!configs/*.example.yaml

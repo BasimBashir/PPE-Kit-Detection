@@ -1,0 +1,23 @@
+# Model stack (schema: ModelsConfig). Weights live in models/ (git-ignored) - see models/README.md.
+backend: ultralytics          # "mock" = deterministic scripted detector (tests / no GPU)
+person:
+  weights: yolo26s-pose.pt    # COCO person + 17 keypoints (head ROI from keypoints, FR-DET-005)
+  imgsz: 640
+  conf: 0.3
+  half: true
+  device: cuda:0
+ppe:
+  weights: ppe_yolo26s.pt     # fine-tuned on Hard Hat Workers (CC0): 0 helmet, 1 head, 2 person
+  imgsz: 640
+  conf: 0.25
+  half: true
+  device: cuda:0
+ppe_class_map: {helmet: 0, head: 1}
+classifier:
+  weights: head_cls_yolo26n.pt  # helmet / no_helmet head-crop classifier (cascade only, FR-DET-006)
+  imgsz: 96
+  conf: 0.0
+  half: true
+  device: cuda:0
+classifier_uncertain_below: 0.75
+cascade_skip_ppe_without_person: true

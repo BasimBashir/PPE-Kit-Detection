@@ -1,0 +1,31 @@
+# PPE rules and zones, seeded into the database on first start (then managed via API/UI).
+# Baseline (interview): ~10-15 samples of persistence. At 5 processed FPS, confirm_n=12 of confirm_m=15
+# decisive observations ~= 2.2 s minimum (11 intervals) (spec 5.1). effective_confirm_seconds is reported by the API.
+rules:
+  - id: hardhat-required
+    name: Hard hat required (all areas)
+    ppe_class: hard_hat
+    camera_id: null
+    zone_id: null
+    severity: high
+    enabled: true
+    thresholds:
+      person_conf: 0.4
+      helmet_conf: 0.35
+      head_conf: 0.35
+      min_person_height_px: 60
+      min_head_px: 12
+    temporal_policy:
+      mode: count
+      confirm_n: 12
+      confirm_m: 15
+      min_duration_s: 2.0
+      suspect_n: 2
+      compliant_n: 3
+      compliant_m: 5
+      clear_n: 8
+      clear_m: 10
+      unknown_ratio: 0.6
+      window: 30
+
+zones: []

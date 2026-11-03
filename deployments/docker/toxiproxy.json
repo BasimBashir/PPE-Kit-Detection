@@ -1,0 +1,62 @@
+[
+  {
+    "name": "cam01",
+    "listen": "0.0.0.0:18501",
+    "upstream": "mediamtx:8554",
+    "enabled": true
+  },
+  {
+    "name": "cam02",
+    "listen": "0.0.0.0:18502",
+    "upstream": "mediamtx:8554",
+    "enabled": true
+  },
+  {
+    "name": "cam03",
+    "listen": "0.0.0.0:18503",
+    "upstream": "mediamtx:8554",
+    "enabled": true
+  },
+  {
+    "name": "cam04",
+    "listen": "0.0.0.0:18504",
+    "upstream": "mediamtx:8554",
+    "enabled": true
+  },
+  {
+    "name": "cam05",
+    "listen": "0.0.0.0:18505",
+    "upstream": "mediamtx:8554",
+    "enabled": true
+  },
+  {
+    "name": "cam06",
+    "listen": "0.0.0.0:18506",
+    "upstream": "mediamtx:8554",
+    "enabled": true
+  },
+  {
+    "name": "cam07",
+    "listen": "0.0.0.0:18507",
+    "upstream": "mediamtx:8554",
+    "enabled": true
+  },
+  {
+    "name": "cam08",
+    "listen": "0.0.0.0:18508",
+    "upstream": "mediamtx:8554",
+    "enabled": true
+  },
+  {
+    "name": "cam09",
+    "listen": "0.0.0.0:18509",
+    "upstream": "mediamtx:8554",
+    "enabled": true
+  },
+  {
+    "name": "cam10",
+    "listen": "0.0.0.0:18510",
+    "upstream": "mediamtx:8554",
+    "enabled": true
+  }
+]

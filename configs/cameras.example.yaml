@@ -1,0 +1,83 @@
+# Demo cameras: RTSP via toxiproxy (185NN) -> MediaMTX. Credentials come from RTSP_READ_USER/RTSP_READ_PASS.
+# Seeded into the database on first start; edit through the API/UI afterwards.
+cameras:
+- id: cam01
+  name: Site A - rebar deck
+  stream_uri: rtsp://localhost:18501/cam01
+  credential_ref: env:RTSP_READ
+  transport: tcp
+  enabled: true
+  site: Demo (simulated RTSP)
+  location: rebar deck
+- id: cam02
+  name: Site A - formwork
+  stream_uri: rtsp://localhost:18502/cam02
+  credential_ref: env:RTSP_READ
+  transport: tcp
+  enabled: true
+  site: Demo (simulated RTSP)
+  location: formwork
+- id: cam03
+  name: Site B - masonry wall
+  stream_uri: rtsp://localhost:18503/cam03
+  credential_ref: env:RTSP_READ
+  transport: tcp
+  enabled: true
+  site: Demo (simulated RTSP)
+  location: masonry wall
+- id: cam04
+  name: Site A - column cage
+  stream_uri: rtsp://localhost:18504/cam04
+  credential_ref: env:RTSP_READ
+  transport: tcp
+  enabled: true
+  site: Demo (simulated RTSP)
+  location: column cage
+- id: cam05
+  name: Plant 1 - assembly line
+  stream_uri: rtsp://localhost:18505/cam05
+  credential_ref: env:RTSP_READ
+  transport: tcp
+  enabled: true
+  site: Demo (simulated RTSP)
+  location: assembly line
+- id: cam06
+  name: Plant 2 - metal shop
+  stream_uri: rtsp://localhost:18506/cam06
+  credential_ref: env:RTSP_READ
+  transport: tcp
+  enabled: true
+  site: Demo (simulated RTSP)
+  location: metal shop
+- id: cam07
+  name: Site C - yard walkway
+  stream_uri: rtsp://localhost:18507/cam07
+  credential_ref: env:RTSP_READ
+  transport: tcp
+  enabled: true
+  site: Demo (simulated RTSP)
+  location: yard walkway
+- id: cam08
+  name: Site C - scaffold
+  stream_uri: rtsp://localhost:18508/cam08
+  credential_ref: env:RTSP_READ
+  transport: tcp
+  enabled: true
+  site: Demo (simulated RTSP)
+  location: scaffold
+- id: cam09
+  name: Plant 3 - garment floor
+  stream_uri: rtsp://localhost:18509/cam09
+  credential_ref: env:RTSP_READ
+  transport: tcp
+  enabled: true
+  site: Demo (simulated RTSP)
+  location: garment floor
+- id: cam10
+  name: Site D - roof access
+  stream_uri: rtsp://localhost:18510/cam10
+  credential_ref: env:RTSP_READ
+  transport: tcp
+  enabled: true
+  site: Demo (simulated RTSP)
+  location: roof access

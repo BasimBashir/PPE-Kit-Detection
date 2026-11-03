@@ -1,0 +1,66 @@
+# Application tunables (schema: backend/app/config/settings.py AppConfig). Copy to app.yaml to override.
+mode: demo            # demo => dashboard shows "SIMULATED SOURCES"; live => real cameras only
+
+demo:                 # ignored in live mode
+  autostart_simulator: true      # API starts scripts/demo/rtsp_simulator.py if it is not running
+  simulator_url: http://127.0.0.1:8890
+  initial_streams: 10            # 1-10 simulated cameras; change at runtime on the "Demo control" page
+
+pipeline:
+  target_fps: 5       # processed FPS per camera (benchmarks also run 2 and 10)
+  max_batch: 10
+  max_batch_wait_ms: 0
+  preview_fps: 4
+  preview_width: 640
+  preview_jpeg_quality: 70
+  convert_fps_factor: 2.0
+
+ingest:
+  transport: tcp
+  open_timeout_s: 5
+  read_timeout_s: 5
+  stall_timeout_s: 5
+  degraded_frame_age_s: 1.5
+  degraded_fps_ratio: 0.5
+  backoff_base_s: 1
+  backoff_max_s: 10
+  stable_reset_s: 10
+  hwaccel: none
+
+tracking:
+  tracker: bytetrack
+  track_activation_threshold: 0.35
+  lost_track_buffer_s: 2.0
+  minimum_matching_threshold: 0.8
+  minimum_consecutive_frames: 1
+  track_expiry_s: 3.0
+
+association:
+  head_roi: keypoints
+  roi_top_frac: 0.25
+  roi_side_margin_frac: 0.15
+  roi_up_frac: 0.06
+  keypoint_min_conf: 0.5
+  min_head_keypoints: 2
+  min_ioa: 0.5
+  max_center_dist: 0.6
+  helmet_width_ratio: [0.12, 0.9]
+  conflict_margin: 0.15
+  use_classifier: true
+
+alerts:
+  cooldown_s: 60
+  spatial_dedupe_s: 30
+  spatial_dedupe_iou: 0.3
+  spatial_dedupe_head_dist: 0.75
+  last_seen_update_s: 5
+  outbox_max_attempts: 8
+  outbox_backoff_base_s: 0.5
+  outbox_backoff_max_s: 60
+  local_sound_enabled: false
+
+evidence:
+  retention_days: 30
+  min_free_bytes: 1000000000
+  jpeg_quality: 85
+  retention_check_interval_s: 3600

@@ -1,0 +1,47 @@
+{
+  "model": "head_cls_yolo26n",
+  "weights_sha256_12": "42b42b2de463",
+  "split": "test",
+  "n": 2378,
+  "top1_accuracy": 0.9727,
+  "confusion": {
+    "helmet": {
+      "helmet": 1790,
+      "no_helmet": 12
+    },
+    "no_helmet": {
+      "no_helmet": 523,
+      "helmet": 53
+    }
+  },
+  "uncertain_threshold_tradeoff": {
+    "0.5": {
+      "coverage": 1.0,
+      "accuracy_on_kept": 0.9727
+    },
+    "0.6": {
+      "coverage": 0.9907,
+      "accuracy_on_kept": 0.9762
+    },
+    "0.7": {
+      "coverage": 0.9844,
+      "accuracy_on_kept": 0.9786
+    },
+    "0.75": {
+      "coverage": 0.976,
+      "accuracy_on_kept": 0.9819
+    },
+    "0.8": {
+      "coverage": 0.9722,
+      "accuracy_on_kept": 0.9831
+    },
+    "0.9": {
+      "coverage": 0.9491,
+      "accuracy_on_kept": 0.9876
+    }
+  },
+  "train_minutes": 6.4,
+  "epochs": 30,
+  "imgsz": 96,
+  "note": "Crops from labelled boxes (oracle localisation); runtime crops come from the head ROI and are noisier."
+}

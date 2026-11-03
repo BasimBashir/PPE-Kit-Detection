@@ -1,0 +1,13 @@
+flowchart TB
+  subgraph dev["Development / demo (verified): Windows 11 + RTX 3090"]
+    D1["uv venv: API + worker (native, CUDA)"]
+    D2["Docker Desktop: postgres · mediamtx · toxiproxy · prometheus · grafana"]
+    D3["ffmpeg publishers (simulator)"]
+  end
+  subgraph edge["Edge target (PROPOSED, not benchmarked)"]
+    E1["Jetson Orin / x86 + NVIDIA GPU<br/>systemd: ppe-api (spawns worker)"]
+    E2["PostgreSQL (container or package)"]
+    E3["NVR on the ship LAN (RTSP)"]
+    E4["Optional: GStreamer/NVDEC source, TensorRT engines"]
+  end
+  E3 --> E1 --> E2
