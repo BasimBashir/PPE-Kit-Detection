@@ -1,6 +1,8 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { StatusBadge } from "./components/StatusBadge";
+import { UsersAdmin } from "./features/Admin";
+import { TeacherRow } from "./features/Events";
 import { initialLive, liveReducer } from "./hooks/liveReducer";
 import { LiveProvider, useLive, wsUrl } from "./hooks/useLiveSocket";
 import { eventQueryString, parseError } from "./services/api";
@@ -98,5 +100,44 @@ describe("LiveProvider render acks", () => {
     const acks = ws.sent.map((s) => JSON.parse(s)).filter((m) => m.type === "event_rendered");
     expect(acks).toHaveLength(1);
     expect(acks[0].event_id).toBe("e9");
+  });
+});
+
+describe("TeacherRow", () => {
+  it("shows the teacher verdict and probabilities, and nothing without a review", () => {
+    const { container, rerender } = render(<dl><TeacherRow review={null} /></dl>);
+    expect(container.querySelector("dt")).toBeNull();
+    rerender(<dl><TeacherRow review={{ kind: "violation", verdict: "LIKELY_FALSE_ALERT", p_teacher: 0.05, p_model: 0.81, fused: 0.1, provider: "gemini", latency_ms: 212, created_at: "2026-11-18T10:00:00Z" }} /></dl>);
+    expect(screen.getByText("Teacher review")).toBeInTheDocument();
+    expect(screen.getByText(/likely false alert — for human review \(alert unchanged\)/)).toBeInTheDocument();
+    expect(screen.getByText(/teacher 0.05 \/ model 0.81 \/ fused 0.10/)).toBeInTheDocument();
+  });
+});
+
+describe("UsersAdmin", () => {
+  it("lists users, creates one, and guards the signed-in admin's own row", async () => {
+    const admin = { id: "u1", username: "admin", role: "admin", enabled: true, created_at: "2026-11-01T10:00:00Z" };
+    const op = { id: "u2", username: "op1", role: "operator", enabled: true, created_at: "2026-11-02T10:00:00Z" };
+    sessionStorage.setItem("ppe.token", "tok");
+    sessionStorage.setItem("ppe.user", JSON.stringify(admin));
+    const calls: [string, RequestInit | undefined][] = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+      calls.push([url, init]);
+      const body = init?.method === "POST" ? { ...op, id: "u3", username: "new1" } : [admin, op];
+      return new Response(JSON.stringify(body), { status: init?.method === "POST" ? 201 : 200 });
+    }));
+    render(<UsersAdmin />);
+    expect(await screen.findByText("op1")).toBeInTheDocument();
+    const [selfBtn, opBtn] = screen.getAllByRole("button", { name: "Disable" });
+    expect(selfBtn).toBeDisabled();
+    expect(opBtn).toBeEnabled();
+    fireEvent.change(screen.getByLabelText("Username"), { target: { value: "new1" } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "long-enough-1" } });
+    fireEvent.change(screen.getByLabelText("Role"), { target: { value: "operator" } });
+    await act(async () => { fireEvent.submit(screen.getByRole("form", { name: "Add user" })); });
+    const post = calls.find(([, i]) => i?.method === "POST")!;
+    expect(post[0]).toBe("/api/v1/users");
+    expect(JSON.parse(post[1]!.body as string)).toEqual({ username: "new1", password: "long-enough-1", role: "operator" });
+    vi.unstubAllGlobals();
   });
 });

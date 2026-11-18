@@ -1,0 +1,513 @@
+{
+  "margin_0.4": {
+    "margin": 0.4,
+    "seeds": [
+      42
+    ],
+    "teacher_cache_rows": 351,
+    "teacher_labels_used": 22,
+    "teacher_labels_skipped": 329,
+    "labels_by_class": {
+      "helmet": 17,
+      "no_helmet": 5
+    },
+    "finetune_by_class": {
+      "helmet": 12,
+      "no_helmet": 3
+    },
+    "holdout_by_class": {
+      "helmet": 5,
+      "no_helmet": 2
+    },
+    "teacher_label_precision_vs_truth": 1.0,
+    "teacher_label_errors_in_finetune_set": 0,
+    "original_train_crops": 18869,
+    "epochs": 30,
+    "imgsz": 96,
+    "holdout_files": [
+      "helmet/hard_hat_workers3180_662fb8c49f5ac15e8959f344.jpg",
+      "helmet/hard_hat_workers4882_662fb8c89f5ac15e895a1fb1.jpg",
+      "helmet/hard_hat_workers844_662fb8ca9f5ac15e895a2bf0.jpg",
+      "helmet/hard_hat_workers891_662fb8ca9f5ac15e895a2d68.jpg",
+      "helmet/hard_hat_workers924_662fb8ca9f5ac15e895a2e19.jpg",
+      "no_helmet/hard_hat_workers1314_662fb8bf9f5ac15e8959c184.jpg",
+      "no_helmet/hard_hat_workers385_662fb8c69f5ac15e895a048d.jpg"
+    ],
+    "summary": {
+      "control": {
+        "rest_missed_violations": {
+          "mean": 43,
+          "min": 43,
+          "max": 43
+        },
+        "rest_ece": {
+          "mean": 0.0167,
+          "min": 0.0167,
+          "max": 0.0167
+        },
+        "holdout_accuracy": {
+          "mean": 1.0,
+          "min": 1.0,
+          "max": 1.0
+        },
+        "holdout_ece": {
+          "mean": 0.0541,
+          "min": 0.0541,
+          "max": 0.0541
+        }
+      },
+      "distilled": {
+        "rest_missed_violations": {
+          "mean": 28,
+          "min": 28,
+          "max": 28
+        },
+        "rest_ece": {
+          "mean": 0.0115,
+          "min": 0.0115,
+          "max": 0.0115
+        },
+        "holdout_accuracy": {
+          "mean": 1.0,
+          "min": 1.0,
+          "max": 1.0
+        },
+        "holdout_ece": {
+          "mean": 0.0619,
+          "min": 0.0619,
+          "max": 0.0619
+        }
+      }
+    },
+    "runs": {
+      "shipped": {
+        "sha256_12": "42b42b2de463",
+        "fa_threshold": 0.000466,
+        "holdout": {
+          "n": 7,
+          "n_violations": 2,
+          "accuracy": 0.8571,
+          "auroc": 1.0,
+          "missed_violations_at_0.5": 1,
+          "false_alarms_at_0.5": 0,
+          "miss_rate_at_fa_threshold": 0.0,
+          "false_alarm_rate_at_fa_threshold": 0.2,
+          "ece_10bin": 0.1051
+        },
+        "rest_of_test": {
+          "n": 2363,
+          "n_violations": 573,
+          "accuracy": 0.9729,
+          "auroc": 0.9945,
+          "missed_violations_at_0.5": 52,
+          "false_alarms_at_0.5": 12,
+          "miss_rate_at_fa_threshold": 0.0035,
+          "false_alarm_rate_at_fa_threshold": 0.2034,
+          "ece_10bin": 0.017
+        }
+      },
+      "control_s42": {
+        "seed": 42,
+        "train_minutes": null,
+        "weights": "head_cls_control_s42.pt",
+        "sha256_12": "cf602766f972",
+        "fa_threshold": 0.00013,
+        "holdout": {
+          "n": 7,
+          "n_violations": 2,
+          "accuracy": 1.0,
+          "auroc": 1.0,
+          "missed_violations_at_0.5": 0,
+          "false_alarms_at_0.5": 0,
+          "miss_rate_at_fa_threshold": 0.0,
+          "false_alarm_rate_at_fa_threshold": 0.2,
+          "ece_10bin": 0.0541
+        },
+        "rest_of_test": {
+          "n": 2363,
+          "n_violations": 573,
+          "accuracy": 0.9755,
+          "auroc": 0.9936,
+          "missed_violations_at_0.5": 43,
+          "false_alarms_at_0.5": 15,
+          "miss_rate_at_fa_threshold": 0.0052,
+          "false_alarm_rate_at_fa_threshold": 0.2715,
+          "ece_10bin": 0.0167
+        }
+      },
+      "distilled_s42": {
+        "seed": 42,
+        "train_minutes": null,
+        "weights": "head_cls_distilled_m0.4_s42.pt",
+        "sha256_12": "9522dd042596",
+        "fa_threshold": 4e-05,
+        "holdout": {
+          "n": 7,
+          "n_violations": 2,
+          "accuracy": 1.0,
+          "auroc": 1.0,
+          "missed_violations_at_0.5": 0,
+          "false_alarms_at_0.5": 0,
+          "miss_rate_at_fa_threshold": 0.0,
+          "false_alarm_rate_at_fa_threshold": 0.2,
+          "ece_10bin": 0.0619
+        },
+        "rest_of_test": {
+          "n": 2363,
+          "n_violations": 573,
+          "accuracy": 0.9826,
+          "auroc": 0.997,
+          "missed_violations_at_0.5": 28,
+          "false_alarms_at_0.5": 13,
+          "miss_rate_at_fa_threshold": 0.0,
+          "false_alarm_rate_at_fa_threshold": 0.2603,
+          "ece_10bin": 0.0115
+        }
+      }
+    },
+    "note": "Scored against ground-truth folders. Holdout = 30% of the teacher-labelled crops; rest_of_test = every public test crop except the fine-tune crops (includes the holdout). Same public split the teacher saw: flywheel mechanics, not site performance. Metrics at 0.5 unless named fa_threshold."
+  },
+  "margin_0.2": {
+    "margin": 0.2,
+    "seeds": [
+      42,
+      43,
+      44
+    ],
+    "teacher_cache_rows": 351,
+    "teacher_labels_used": 230,
+    "teacher_labels_skipped": 121,
+    "labels_by_class": {
+      "helmet": 53,
+      "no_helmet": 177
+    },
+    "finetune_by_class": {
+      "helmet": 35,
+      "no_helmet": 131
+    },
+    "holdout_by_class": {
+      "helmet": 18,
+      "no_helmet": 46
+    },
+    "teacher_label_precision_vs_truth": 0.9087,
+    "teacher_label_errors_in_finetune_set": 14,
+    "original_train_crops": 18869,
+    "epochs": 30,
+    "imgsz": 96,
+    "holdout_files": [
+      "helmet/hard_hat_workers1234_662fb8be9f5ac15e8959bf3f.jpg",
+      "helmet/hard_hat_workers1399_662fb8bf9f5ac15e8959c3be.jpg",
+      "helmet/hard_hat_workers1562_662fb8bf9f5ac15e8959c81e.jpg",
+      "helmet/hard_hat_workers2224_662fb8c19f5ac15e8959d958.jpg",
+      "helmet/hard_hat_workers2403_662fb8c29f5ac15e8959de26.jpg",
+      "helmet/hard_hat_workers2432_662fb8c29f5ac15e8959df28.jpg",
+      "helmet/hard_hat_workers3180_662fb8c49f5ac15e8959f344.jpg",
+      "helmet/hard_hat_workers3235_662fb8c49f5ac15e8959f49b.jpg",
+      "helmet/hard_hat_workers4107_662fb8c69f5ac15e895a0ac2.jpg",
+      "helmet/hard_hat_workers4472_662fb8c79f5ac15e895a14a3.jpg",
+      "helmet/hard_hat_workers4646_662fb8c89f5ac15e895a1925.jpg",
+      "helmet/hard_hat_workers4882_662fb8c89f5ac15e895a1fb1.jpg",
+      "helmet/hard_hat_workers844_662fb8ca9f5ac15e895a2bf0.jpg",
+      "helmet/hard_hat_workers891_662fb8ca9f5ac15e895a2d68.jpg",
+      "helmet/hard_hat_workers918_662fb8ca9f5ac15e895a2e01.jpg",
+      "helmet/hard_hat_workers918_662fb8ca9f5ac15e895a2e02.jpg",
+      "helmet/hard_hat_workers924_662fb8ca9f5ac15e895a2e19.jpg",
+      "helmet/hard_hat_workers954_662fb8ca9f5ac15e895a2f20.jpg",
+      "no_helmet/hard_hat_workers1038_662fb8be9f5ac15e8959ba6c.jpg",
+      "no_helmet/hard_hat_workers1038_662fb8be9f5ac15e8959ba73.jpg",
+      "no_helmet/hard_hat_workers1284_662fb8bf9f5ac15e8959c065.jpg",
+      "no_helmet/hard_hat_workers1314_662fb8bf9f5ac15e8959c184.jpg",
+      "no_helmet/hard_hat_workers157_662fb8bf9f5ac15e8959c84a.jpg",
+      "no_helmet/hard_hat_workers157_662fb8bf9f5ac15e8959c84b.jpg",
+      "no_helmet/hard_hat_workers1746_662fb8c09f5ac15e8959cd69.jpg",
+      "no_helmet/hard_hat_workers1755_662fb8c09f5ac15e8959cdae.jpg",
+      "no_helmet/hard_hat_workers2231_662fb8c19f5ac15e8959d97e.jpg",
+      "no_helmet/hard_hat_workers2235_662fb8c19f5ac15e8959d993.jpg",
+      "no_helmet/hard_hat_workers2243_662fb8c19f5ac15e8959d9cc.jpg",
+      "no_helmet/hard_hat_workers2388_662fb8c29f5ac15e8959ddca.jpg",
+      "no_helmet/hard_hat_workers2478_662fb8c29f5ac15e8959e077.jpg",
+      "no_helmet/hard_hat_workers2491_662fb8c29f5ac15e8959e0e2.jpg",
+      "no_helmet/hard_hat_workers250_662fb8c29f5ac15e8959e172.jpg",
+      "no_helmet/hard_hat_workers2530_662fb8c29f5ac15e8959e261.jpg",
+      "no_helmet/hard_hat_workers2654_662fb8c29f5ac15e8959e55c.jpg",
+      "no_helmet/hard_hat_workers2724_662fb8c39f5ac15e8959e77a.jpg",
+      "no_helmet/hard_hat_workers2759_662fb8c39f5ac15e8959e870.jpg",
+      "no_helmet/hard_hat_workers2759_662fb8c39f5ac15e8959e874.jpg",
+      "no_helmet/hard_hat_workers2766_662fb8c39f5ac15e8959e8f5.jpg",
+      "no_helmet/hard_hat_workers2910_662fb8c39f5ac15e8959ec30.jpg",
+      "no_helmet/hard_hat_workers2935_662fb8c39f5ac15e8959ed14.jpg",
+      "no_helmet/hard_hat_workers2963_662fb8c39f5ac15e8959edb9.jpg",
+      "no_helmet/hard_hat_workers3361_662fb8c49f5ac15e8959f7c3.jpg",
+      "no_helmet/hard_hat_workers3367_662fb8c49f5ac15e8959f7d8.jpg",
+      "no_helmet/hard_hat_workers3439_662fb8c49f5ac15e8959f9a1.jpg",
+      "no_helmet/hard_hat_workers3456_662fb8c49f5ac15e8959f9f9.jpg",
+      "no_helmet/hard_hat_workers3600_662fb8c59f5ac15e8959fdf2.jpg",
+      "no_helmet/hard_hat_workers3643_662fb8c59f5ac15e8959ff11.jpg",
+      "no_helmet/hard_hat_workers385_662fb8c69f5ac15e895a048d.jpg",
+      "no_helmet/hard_hat_workers3945_662fb8c69f5ac15e895a06f8.jpg",
+      "no_helmet/hard_hat_workers4076_662fb8c69f5ac15e895a0a2c.jpg",
+      "no_helmet/hard_hat_workers4440_662fb8c79f5ac15e895a1406.jpg",
+      "no_helmet/hard_hat_workers4472_662fb8c79f5ac15e895a14aa.jpg",
+      "no_helmet/hard_hat_workers4625_662fb8c89f5ac15e895a189b.jpg",
+      "no_helmet/hard_hat_workers4625_662fb8c89f5ac15e895a189c.jpg",
+      "no_helmet/hard_hat_workers4646_662fb8c89f5ac15e895a1926.jpg",
+      "no_helmet/hard_hat_workers4732_662fb8c89f5ac15e895a1b56.jpg",
+      "no_helmet/hard_hat_workers4783_662fb8c89f5ac15e895a1cfe.jpg",
+      "no_helmet/hard_hat_workers4849_662fb8c89f5ac15e895a1efd.jpg",
+      "no_helmet/hard_hat_workers927_662fb8ca9f5ac15e895a2e28.jpg",
+      "no_helmet/hard_hat_workers927_662fb8ca9f5ac15e895a2e2c.jpg",
+      "no_helmet/hard_hat_workers932_662fb8ca9f5ac15e895a2ea1.jpg",
+      "no_helmet/hard_hat_workers932_662fb8ca9f5ac15e895a2ea2.jpg",
+      "no_helmet/hard_hat_workers955_662fb8ca9f5ac15e895a2f28.jpg"
+    ],
+    "summary": {
+      "control": {
+        "rest_missed_violations": {
+          "mean": 24.3333,
+          "min": 21,
+          "max": 27
+        },
+        "rest_ece": {
+          "mean": 0.0095,
+          "min": 0.0065,
+          "max": 0.0111
+        },
+        "holdout_accuracy": {
+          "mean": 0.8698,
+          "min": 0.8594,
+          "max": 0.875
+        },
+        "holdout_ece": {
+          "mean": 0.1244,
+          "min": 0.1123,
+          "max": 0.1313
+        }
+      },
+      "distilled": {
+        "rest_missed_violations": {
+          "mean": 25,
+          "min": 23,
+          "max": 27
+        },
+        "rest_ece": {
+          "mean": 0.0079,
+          "min": 0.0076,
+          "max": 0.0082
+        },
+        "holdout_accuracy": {
+          "mean": 0.8542,
+          "min": 0.8438,
+          "max": 0.8594
+        },
+        "holdout_ece": {
+          "mean": 0.1307,
+          "min": 0.1235,
+          "max": 0.1386
+        }
+      }
+    },
+    "runs": {
+      "shipped": {
+        "sha256_12": "42b42b2de463",
+        "fa_threshold": 0.01761,
+        "holdout": {
+          "n": 64,
+          "n_violations": 39,
+          "accuracy": 0.7969,
+          "auroc": 0.9282,
+          "missed_violations_at_0.5": 10,
+          "false_alarms_at_0.5": 3,
+          "miss_rate_at_fa_threshold": 0.1026,
+          "false_alarm_rate_at_fa_threshold": 0.24,
+          "ece_10bin": 0.1534
+        },
+        "rest_of_test": {
+          "n": 2212,
+          "n_violations": 459,
+          "accuracy": 0.981,
+          "auroc": 0.9949,
+          "missed_violations_at_0.5": 31,
+          "false_alarms_at_0.5": 11,
+          "miss_rate_at_fa_threshold": 0.0174,
+          "false_alarm_rate_at_fa_threshold": 0.0565,
+          "ece_10bin": 0.0091
+        }
+      },
+      "control_s42": {
+        "seed": 42,
+        "train_minutes": null,
+        "weights": "head_cls_control_s42.pt",
+        "sha256_12": "cf602766f972",
+        "fa_threshold": 0.0021,
+        "holdout": {
+          "n": 64,
+          "n_violations": 39,
+          "accuracy": 0.875,
+          "auroc": 0.9405,
+          "missed_violations_at_0.5": 6,
+          "false_alarms_at_0.5": 2,
+          "miss_rate_at_fa_threshold": 0.0769,
+          "false_alarm_rate_at_fa_threshold": 0.24,
+          "ece_10bin": 0.1296
+        },
+        "rest_of_test": {
+          "n": 2212,
+          "n_violations": 459,
+          "accuracy": 0.9824,
+          "auroc": 0.9935,
+          "missed_violations_at_0.5": 25,
+          "false_alarms_at_0.5": 14,
+          "miss_rate_at_fa_threshold": 0.0131,
+          "false_alarm_rate_at_fa_threshold": 0.1175,
+          "ece_10bin": 0.011
+        }
+      },
+      "distilled_s42": {
+        "seed": 42,
+        "train_minutes": 2.9,
+        "weights": "head_cls_distilled_m0.2_s42.pt",
+        "sha256_12": "fe3ac676cb75",
+        "fa_threshold": 0.008592,
+        "holdout": {
+          "n": 64,
+          "n_violations": 39,
+          "accuracy": 0.8594,
+          "auroc": 0.9364,
+          "missed_violations_at_0.5": 6,
+          "false_alarms_at_0.5": 3,
+          "miss_rate_at_fa_threshold": 0.0513,
+          "false_alarm_rate_at_fa_threshold": 0.28,
+          "ece_10bin": 0.1386
+        },
+        "rest_of_test": {
+          "n": 2212,
+          "n_violations": 459,
+          "accuracy": 0.9806,
+          "auroc": 0.9945,
+          "missed_violations_at_0.5": 23,
+          "false_alarms_at_0.5": 20,
+          "miss_rate_at_fa_threshold": 0.0109,
+          "false_alarm_rate_at_fa_threshold": 0.1323,
+          "ece_10bin": 0.008
+        }
+      },
+      "control_s43": {
+        "seed": 43,
+        "train_minutes": 2.9,
+        "weights": "head_cls_control_s43.pt",
+        "sha256_12": "777e69e332c4",
+        "fa_threshold": 0.005433,
+        "holdout": {
+          "n": 64,
+          "n_violations": 39,
+          "accuracy": 0.8594,
+          "auroc": 0.9426,
+          "missed_violations_at_0.5": 7,
+          "false_alarms_at_0.5": 2,
+          "miss_rate_at_fa_threshold": 0.0513,
+          "false_alarm_rate_at_fa_threshold": 0.28,
+          "ece_10bin": 0.1123
+        },
+        "rest_of_test": {
+          "n": 2212,
+          "n_violations": 459,
+          "accuracy": 0.9824,
+          "auroc": 0.9957,
+          "missed_violations_at_0.5": 27,
+          "false_alarms_at_0.5": 12,
+          "miss_rate_at_fa_threshold": 0.0109,
+          "false_alarm_rate_at_fa_threshold": 0.1107,
+          "ece_10bin": 0.0065
+        }
+      },
+      "distilled_s43": {
+        "seed": 43,
+        "train_minutes": 2.8,
+        "weights": "head_cls_distilled_m0.2_s43.pt",
+        "sha256_12": "279b2e98c879",
+        "fa_threshold": 0.025915,
+        "holdout": {
+          "n": 64,
+          "n_violations": 39,
+          "accuracy": 0.8594,
+          "auroc": 0.9262,
+          "missed_violations_at_0.5": 6,
+          "false_alarms_at_0.5": 3,
+          "miss_rate_at_fa_threshold": 0.1282,
+          "false_alarm_rate_at_fa_threshold": 0.16,
+          "ece_10bin": 0.1235
+        },
+        "rest_of_test": {
+          "n": 2212,
+          "n_violations": 459,
+          "accuracy": 0.9842,
+          "auroc": 0.9937,
+          "missed_violations_at_0.5": 25,
+          "false_alarms_at_0.5": 10,
+          "miss_rate_at_fa_threshold": 0.024,
+          "false_alarm_rate_at_fa_threshold": 0.0422,
+          "ece_10bin": 0.0076
+        }
+      },
+      "control_s44": {
+        "seed": 44,
+        "train_minutes": 2.7,
+        "weights": "head_cls_control_s44.pt",
+        "sha256_12": "253efed81fa3",
+        "fa_threshold": 0.000496,
+        "holdout": {
+          "n": 64,
+          "n_violations": 39,
+          "accuracy": 0.875,
+          "auroc": 0.9467,
+          "missed_violations_at_0.5": 6,
+          "false_alarms_at_0.5": 2,
+          "miss_rate_at_fa_threshold": 0.0256,
+          "false_alarm_rate_at_fa_threshold": 0.28,
+          "ece_10bin": 0.1313
+        },
+        "rest_of_test": {
+          "n": 2212,
+          "n_violations": 459,
+          "accuracy": 0.9833,
+          "auroc": 0.9959,
+          "missed_violations_at_0.5": 21,
+          "false_alarms_at_0.5": 16,
+          "miss_rate_at_fa_threshold": 0.0044,
+          "false_alarm_rate_at_fa_threshold": 0.1717,
+          "ece_10bin": 0.0111
+        }
+      },
+      "distilled_s44": {
+        "seed": 44,
+        "train_minutes": 3.0,
+        "weights": "head_cls_distilled_m0.2_s44.pt",
+        "sha256_12": "fbbc581fbcb2",
+        "fa_threshold": 0.002621,
+        "holdout": {
+          "n": 64,
+          "n_violations": 39,
+          "accuracy": 0.8438,
+          "auroc": 0.9395,
+          "missed_violations_at_0.5": 6,
+          "false_alarms_at_0.5": 4,
+          "miss_rate_at_fa_threshold": 0.0,
+          "false_alarm_rate_at_fa_threshold": 0.48,
+          "ece_10bin": 0.13
+        },
+        "rest_of_test": {
+          "n": 2212,
+          "n_violations": 459,
+          "accuracy": 0.9801,
+          "auroc": 0.9954,
+          "missed_violations_at_0.5": 27,
+          "false_alarms_at_0.5": 17,
+          "miss_rate_at_fa_threshold": 0.0044,
+          "false_alarm_rate_at_fa_threshold": 0.1911,
+          "ece_10bin": 0.0082
+        }
+      }
+    },
+    "note": "Scored against ground-truth folders. Holdout = 30% of the teacher-labelled crops; rest_of_test = every public test crop except the fine-tune crops (includes the holdout). Same public split the teacher saw: flywheel mechanics, not site performance. Metrics at 0.5 unless named fa_threshold."
+  }
+}

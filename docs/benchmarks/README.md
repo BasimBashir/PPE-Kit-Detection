@@ -3,6 +3,8 @@
 Raw, generated reports (never hand-edited): [results.md](results.md) + `results/*.json` (load and ablation),
 [fault_injection.md](fault_injection.md) + `.json`, [soak_1h.md](soak_1h.md) + `.csv`, [ui_latency.md](ui_latency.md).
 Earlier run kept for the before/after comparison: [results_before_classifier_batching/](results_before_classifier_batching/results.md).
+Hand-written follow-up measurements (TensorRT FP16, NVDEC probe, CPU-only profile, tracking placement):
+[phase2-performance.md](phase2-performance.md).
 
 **Host:** RTX 3090 24 GB, Intel i5-12400F (6C/12T), 64 GB RAM, Windows 11, torch 2.14.1+cu130, Ultralytics 8.4.198.
 **Sources:** 10 simulated RTSP cameras (720p H.264, 24-30 FPS, looped stock clips via MediaMTX + Toxiproxy, TCP).
@@ -43,7 +45,10 @@ GPU calls per batch). Batching all ambiguous crops of an inference batch into on
 | association p95 per frame | 12-14 ms | 0.3 ms |
 
 Next steps, not implemented: TensorRT FP16 engines, NVDEC decode, moving tracking/association off the GPU thread,
-DeepStream for the edge.
+DeepStream for the edge. These were followed up and measured on the dev host in
+[phase2-performance.md](phase2-performance.md): TensorRT FP16 is 2.4× per-call at batch 1 but only 1.25-1.35× at
+production batch sizes; NVDEC loses to CPU software decode on this host; tracking+association is 3.8% of the
+per-frame budget (p50) and stays on the inference thread.
 
 ## 4. Architecture ablation (10 × 5) - is every model justified?
 | Variant | Person model | Head ROI | Classifier | Uncertain obs. / frame | Events / cam-h* |
@@ -83,5 +88,8 @@ the ground, fine-tune, and evaluate event-level recall per scene on labelled sit
 claim is made, and why "5,000 images ⇒ 80 % recall" cannot be assumed.
 
 ## 7. What is not measured
-Event-level recall and false alarms per camera-hour on labelled footage; edge devices; 8 h / 24 h soak; multi-resolution
-sources (all 720p); UDP transport.
+Event-level recall and false alarms per camera-hour on labelled footage; edge devices; multi-resolution sources
+(all 720p); real RTSP-over-UDP sources (transport=udp is code-verified and documented, not exercised against a
+live UDP camera). Followed up in [phase2-performance.md](phase2-performance.md): TensorRT FP16 latency, NVDEC
+feasibility probe, CPU-only inference profile, tracking placement, and an 8 h soak (started 2026-11-18, results in
+`soak_8h.md` when complete).

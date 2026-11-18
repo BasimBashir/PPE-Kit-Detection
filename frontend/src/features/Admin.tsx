@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { api } from "../services/api";
+import { api, auth } from "../services/api";
 import { StatusBadge } from "../components/StatusBadge";
-import type { Camera, CameraCreate, CameraTestResult, Rule, SettingsOut, TemporalPolicy, Thresholds, Zone } from "../types/api";
+import { fmtDateTime } from "../components/format";
+import type { Camera, CameraCreate, CameraTestResult, Role, Rule, SettingsOut, TemporalPolicy, Thresholds, User, Zone } from "../types/api";
 
 const EMPTY: CameraCreate = { id: "", name: "", stream_uri: "rtsp://", credential_ref: "env:RTSP_READ", transport: "tcp", enabled: true };
 
@@ -165,6 +166,56 @@ export function RulesSettings() {
           </div>
         </section>
       )}
+    </div>
+  );
+}
+
+const ROLES: Role[] = ["viewer", "operator", "admin"];
+const EMPTY_USER = { username: "", password: "", role: "viewer" as Role };
+
+export function UsersAdmin() {
+  const [users, setUsers] = useState<User[]>([]);
+  const [form, setForm] = useState(EMPTY_USER);
+  const [err, setErr] = useState<string | null>(null);
+  const me = auth.user();
+  const load = () => api.users().then(setUsers).catch((e) => setErr(e.message));
+  useEffect(() => { load(); }, []);
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    try { await api.createUser(form); setForm(EMPTY_USER); setErr(null); load(); }
+    catch (x) { setErr((x as Error).message); }
+  };
+  const update = async (u: User, b: { role?: Role; enabled?: boolean }) => {
+    try { await api.updateUser(u.id, b); setErr(null); load(); } catch (x) { setErr((x as Error).message); }
+  };
+
+  return (
+    <div className="page">
+      <h1>Users</h1>
+      {err && <p className="error" role="alert">{err}</p>}
+      <table className="table">
+        <thead><tr><th>Username</th><th>Role</th><th>State</th><th>Created</th><th /></tr></thead>
+        <tbody>{users.map((u) => (
+          <tr key={u.id}>
+            <td>{u.username}</td>
+            <td><select aria-label={`Role for ${u.username}`} value={u.role} disabled={u.id === me?.id}
+              onChange={(e) => update(u, { role: e.target.value as Role })}>{ROLES.map((r) => <option key={r}>{r}</option>)}</select></td>
+            <td>{u.enabled ? "enabled" : "disabled"}</td>
+            <td>{fmtDateTime(u.created_at)}</td>
+            <td className="row-actions">
+              {/* self-lockout guard: an admin cannot disable or demote their own account here */}
+              <button className="btn" disabled={u.id === me?.id} onClick={() => update(u, { enabled: !u.enabled })}>{u.enabled ? "Disable" : "Enable"}</button>
+            </td>
+          </tr>))}</tbody>
+      </table>
+      <form className="card form-grid" onSubmit={submit} aria-label="Add user">
+        <h2>Add user</h2>
+        <label>Username<input value={form.username} pattern="[a-zA-Z0-9_.\-]{3,64}" required onChange={(e) => setForm({ ...form, username: e.target.value })} /></label>
+        <label>Password<input type="password" autoComplete="new-password" minLength={8} maxLength={256} value={form.password} required onChange={(e) => setForm({ ...form, password: e.target.value })} /></label>
+        <label>Role<select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as Role })}>{ROLES.map((r) => <option key={r}>{r}</option>)}</select></label>
+        <div className="row-actions"><button className="btn primary">Add user</button></div>
+      </form>
     </div>
   );
 }

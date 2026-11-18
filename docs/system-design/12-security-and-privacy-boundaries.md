@@ -1,6 +1,6 @@
 # 12 - Security and privacy boundaries
 
-**Status:** VERIFIED (tests)  · **Related ADRs:** ADR-012 · **Modules:** `core/redaction.py`, `camera/uri.py`, `api/deps.py`, `repositories/users.py`
+**Status:** VERIFIED (tests)  · **Related ADRs:** ADR-012, ADR-013 · **Modules:** `core/redaction.py`, `camera/uri.py`, `api/deps.py`, `repositories/users.py`, `inference/teacher.py`
 
 ## Purpose and scope
 Trust boundaries and controls (spec 14).
@@ -25,6 +25,10 @@ flowchart LR
 - AuthN/Z: argon2id, opaque tokens (sha256 at rest), roles viewer/operator/admin, login rate limit 5/min/IP.
 - Evidence: served by event id only; path traversal rejected (test).
 - Privacy: no face recognition, no names, privacy zones pixelated in evidence and previews, retention job.
+- Teacher review (ADR-013, disabled by default): when enabled, privacy-masked head crops are sent to the configured
+  provider; the Gemini key is a redacted `SecretStr` used only in the request header. Free-tier terms let the
+  provider use submitted data — a site must only enable providers whose data terms it accepts (self-hosted
+  SystemOne/Clef keeps crops on site).
 
 ## Interfaces / contracts
 `/api/v1/auth/*`, role dependencies `require("operator"|"admin")`.

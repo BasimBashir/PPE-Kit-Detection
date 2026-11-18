@@ -1,7 +1,7 @@
 // Typed REST client: bearer auth from sessionStorage, structured error parsing (FR-API-004).
 import type {
   Camera, CameraCreate, CameraTestResult, CameraUpdate, EventDetail, FrameOut, MetricsSummary, Page, PPEEvent,
-  Rule, SettingsOut, TemporalPolicy, Thresholds, User, Zone,
+  Role, Rule, SettingsOut, TemporalPolicy, Thresholds, User, Zone,
 } from "../types/api";
 
 const TOKEN_KEY = "ppe.token";
@@ -101,6 +101,9 @@ export const api = {
   resolve: (id: string, note?: string) => post<PPEEvent>(`/api/v1/events/${id}/resolve`, { note }),
   feedback: (id: string, label: "TRUE_POSITIVE" | "FALSE_POSITIVE", note?: string) =>
     post<PPEEvent>(`/api/v1/events/${id}/feedback`, { label, note }),
+  users: () => json<User[]>("/api/v1/users"),
+  createUser: (b: { username: string; password: string; role: Role }) => post<User>("/api/v1/users", b),
+  updateUser: (id: string, b: { role?: Role; enabled?: boolean; password?: string }) => patch<User>(`/api/v1/users/${id}`, b),
   metrics: () => json<MetricsSummary>("/api/v1/metrics"),
   settings: () => json<SettingsOut>("/api/v1/settings"),
   patchSettings: (b: { evidence_retention_days: number }) => patch<SettingsOut>("/api/v1/settings", b),

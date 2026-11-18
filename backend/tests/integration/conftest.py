@@ -33,7 +33,8 @@ def sf(engine):
     """Session factory on a clean set of tables (truncated per test)."""
     with engine.begin() as c:
         c.execute(text("TRUNCATE users, sessions, cameras, camera_health, zones, ppe_rules, model_versions, events, "
-                       "alert_outbox, event_actions, audit_logs, system_metrics_snapshots, settings CASCADE"))
+                       "alert_outbox, event_actions, audit_logs, system_metrics_snapshots, settings, teacher_reviews "
+                       "CASCADE"))
     return make_session_factory(engine)
 
 

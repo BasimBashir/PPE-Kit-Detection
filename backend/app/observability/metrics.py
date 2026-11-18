@@ -103,3 +103,10 @@ db_up = Gauge("db_up", "1 if the database answered the last health probe")
 ppe_worker_up = Gauge("ppe_worker_up", "1 while the pipeline worker process is alive and sending heartbeats")
 ppe_worker_restarts_total = Counter("ppe_worker_restarts_total", "Pipeline worker restarts by the supervisor")
 ppe_worker_uptime_seconds = Gauge("ppe_worker_uptime_seconds", "Seconds since the current worker started")
+
+# ---------------------------------------------------------------- teacher review (API, asynchronous, advisory)
+ppe_teacher_reviews_total = Counter("ppe_teacher_reviews_total", "Teacher reviews stored", ["verdict"])
+ppe_teacher_failures_total = Counter(
+    "ppe_teacher_failures_total", "Teacher reviews not completed; reason=error|timeout|dropped|crop_missing", ["reason"]
+)
+ppe_teacher_latency_seconds = Histogram("ppe_teacher_latency_seconds", "Teacher call latency", buckets=EVENT_BUCKETS)

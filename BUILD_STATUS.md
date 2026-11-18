@@ -24,8 +24,9 @@ Licence: AGPL-3.0-or-later (user decision). Interview mapping: [docs/product/int
 | 6 Temporal FSM + alerts | VERIFIED | unit + integration tests; live events with evidence; dedupe/cooldown/spool |
 | 7 Dashboard + workflows | VERIFIED | headless-Edge screenshots of all 8 pages; acknowledge/resolve/feedback via API tests; live WS |
 | 8 Resilience + observability | VERIFIED | 13 fault scenarios; Prometheus rules (promtool), Grafana dashboard provisioned |
-| 9 Optimisation + edge | PARTIAL | classifier batching +38 % saturation throughput; TensorRT/NVDEC/DeepStream/edge NOT DONE |
-| 10 Portfolio release | IN_PROGRESS | README, demo script, test report, model/data cards; demo video + public repo pending (owner) |
+| 9 Optimisation + edge | PARTIAL | classifier batching +38 % saturation throughput; TensorRT FP16 measured (2.4× per-call at batch 1, 1.25-1.35× at batch 10, engines not wired into the pipeline) and NVDEC probed (CPU decode faster on dev host, not integrated) — docs/benchmarks/phase2-performance.md; DeepStream/on-device edge NOT DONE |
+| 10 Portfolio release | IN_PROGRESS | README, demo script, test report, model/data cards; Phase 2 video (whole-team audience) pending |
+| 11 Phase 2: teacher review + fusion + distillation | VERIFIED | ADR-013; docs/ml/fusion_eval + teacher_eval (live) + distill_eval; smoke-tested end to end (fake: all 4 verdicts + escalation visible; gemini: ~80 clean reviews); 0 alerts suppressed (grid + SQL-capture tests) |
 
 ## Feature checklist (spec FR ids)
 | Area | Status | Notes |
@@ -37,7 +38,7 @@ Licence: AGPL-3.0-or-later (user decision). Interview mapping: [docs/product/int
 | FR-UI-001..006 | VERIFIED | + Demo control page (stream count 0-10, per-camera and system faults) |
 | FR-API-001..004 | VERIFIED | OpenAPI at /api/docs |
 | FR-OFF-001..004 | VERIFIED | weights/assets local after first fetch; dashboard served by API; no runtime cloud call |
-| Users/roles/auth | VERIFIED | argon2id, opaque tokens, 3 roles, rate limit; no users UI (API only) |
+| Users/roles/auth | VERIFIED | argon2id, opaque tokens, 3 roles, rate limit; admin Users page (`config/users`: create, role, enable/disable, self-lockout guard) |
 
 ## Measured results (all generated; see docs/benchmarks/README.md)
 | Measurement | Result | Source |
@@ -52,20 +53,29 @@ Licence: AGPL-3.0-or-later (user decision). Interview mapping: [docs/product/int
 | Time to confirm | ≥ 2.2 s by policy at 5 FPS; observed 2.1-3.6 s | events, ADR-006 |
 | Fault recovery | 13/13 scenarios recovered; e.g. unplug 0.6 s / 7.8 s, worker crash 0.6 s / 14.7 s, DB outage 0 lost | fault_injection.md |
 | 1 h soak | see soak_1h.md | soak_1h.md |
-| Tests | backend 77 passed (unit + integration + GPU); frontend 14 passed; ruff + tsc clean | docs/testing/test-report.md |
+| Last-layer fusion (test, n=2,337) | logistic AUROC 0.9968 beats Laya 0.9928; misses 4.7 % → 3.2 % at ≤2 % FAR | docs/ml/fusion_eval.md |
+| Teacher review (live, 351 public crops) | fused AUROC 0.972; 20/26 missed violations escalated; 0 suppressed; p95 7.9 s | docs/ml/teacher_eval.md |
+| Distillation (22/230 teacher labels, 3 seeds) | no measured gain vs control at this label volume | docs/ml/distill_eval.md |
+| TensorRT FP16 (measured) | 2.4× per-call at batch 1; 1.25-1.35× at production batches; NVDEC probed, not worth it | docs/benchmarks/phase2-performance.md |
+| Tests | backend 98 passed (unit + integration + GPU); frontend 16 passed; ruff + tsc clean | docs/testing/test-report.md |
 
 ## Known defects / limitations
-- **False compliance on caps/head wraps** (R16) and **no alerts on distant small workers** (cam03) on demo footage.
+- **False compliance on caps/head wraps** (R16) and **no alerts on distant small workers** (cam03) on demo footage; the asynchronous teacher-review layer (ADR-013, off by default) is the designed mitigation — 20/26 of our missed violations were escalated in the live benchmark.
+- Distillation from raw confident teacher labels showed no gain over continued training at 22-230 public labels (controls overlap, 3 seeds); profitable retraining needs operator-confirmed site labels.
 - No labelled site footage → no event recall / FP-per-hour figures; interview targets not claimed.
 - Alert counts inflated by looping clips (same workers re-enter as new tracks every 7-33 s).
-- Cooldown/dedupe memory lost on worker restart; constant network latency undetectable without source timestamps.
-- CPU-only profile, UDP transport, Linux/edge deployment: not verified. No Playwright E2E test suite (headless
+- Cooldown/dedupe memory is re-seeded from the `events` table on worker restart (person-box IoU only; empty state if
+  the DB is down at start, so a post-crash duplicate is then still possible); constant network latency undetectable
+  without source timestamps.
+- CPU inference cascade measured (~5 cameras at 2 FPS on the dev host i5-12400F, inference only —
+  docs/benchmarks/phase2-performance.md); full-app CPU profile, a live RTSP-over-UDP source, Linux/edge deployment:
+  not verified (UDP transport is code-verified and documented). No Playwright E2E test suite (headless
   screenshots + WS regression test only).
-- The worker's RTSP behaviour is tested live (fault/load campaigns), not by a dedicated pytest.
+- The worker's RTSP behaviour is tested live (fault/load campaigns); the ingest loop itself is unit-tested on local files (`test_camera_source.py`: flow, backoff/offline/recovery, watchdog), not against a live RTSP source.
 
 ## Next exact tasks
-1. Owner: reset demo data and record the demo video (weights are now in the repo via Git LFS).
-2. Reset demo data before recording (`docker compose down -v`, delete `evidence/` and `spool/`), then follow
-   docs/demo/demo-script.md.
-3. Hard-negative data (caps, hoods, helmets in hand/on ground) + fine-tune; labelled clips for event-level recall.
-4. TensorRT export + NVDEC decode; 8 h soak; on-device edge benchmark.
+1. Record the Phase 2 video for the whole ALTAVE team (6-8 min, TTS + silent captioned; business-first).
+2. 8 h soak running since 2026-11-18; results land in docs/benchmarks/soak_8h.md when complete.
+3. Re-tune teacher w/thresholds on reviewed site data before enabling; accumulate operator-confirmed labels and re-run the distillation study at real volume.
+4. Wire TensorRT engines into the pipeline (export path measured; the person-pose stage is the half that could lift the saturation ceiling); on-device edge benchmark.
+5. Playwright E2E suite; live UDP source exercise.

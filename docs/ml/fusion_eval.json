@@ -1,0 +1,111 @@
+{
+  "split_fit": "val",
+  "split_eval": "test",
+  "n_val": 2488,
+  "n_test": 2337,
+  "violations_val": 514,
+  "violations_test": 571,
+  "max_far_val": 0.02,
+  "bootstrap_resamples": 1000,
+  "methods": {
+    "classifier_alone": {
+      "accuracy": 0.973,
+      "auroc": 0.994,
+      "auroc_ci95": [
+        0.9906,
+        0.9966
+      ],
+      "miss_rate_at_val_far2pct": 0.0473,
+      "test_far_at_that_threshold": 0.0193,
+      "ece_10bin": 0.0215,
+      "latency_ms": {
+        "cpu": 0.0001
+      },
+      "auroc_minus_logistic_ci95": [
+        -0.0045,
+        -0.0014
+      ]
+    },
+    "logistic_fusion": {
+      "accuracy": 0.9859,
+      "auroc": 0.9968,
+      "auroc_ci95": [
+        0.9947,
+        0.9983
+      ],
+      "miss_rate_at_val_far2pct": 0.0315,
+      "test_far_at_that_threshold": 0.017,
+      "ece_10bin": 0.0125,
+      "latency_ms": {
+        "cpu": 0.2105
+      },
+      "coefficients_standardized": {
+        "cls_logit": 3.956,
+        "det_helmet_conf": -0.808,
+        "det_head_conf": 1.206,
+        "log_w": -0.122,
+        "log_h": -0.15,
+        "log_area_rel": -0.15,
+        "aspect": -0.462,
+        "log_crop_px": -0.067
+      }
+    },
+    "laya_zero_shot": {
+      "accuracy": 0.9735,
+      "auroc": 0.9928,
+      "auroc_ci95": [
+        0.9879,
+        0.9963
+      ],
+      "miss_rate_at_val_far2pct": 0.042,
+      "test_far_at_that_threshold": 0.0176,
+      "ece_10bin": 0.2817,
+      "latency_ms": {
+        "gpu_batch1": 35.1435,
+        "gpu_batch128": 1.7561
+      },
+      "auroc_minus_logistic_ci95": [
+        -0.0075,
+        -0.0016
+      ]
+    },
+    "laya_platt_recalibrated": {
+      "accuracy": 0.9735,
+      "auroc": 0.9928,
+      "auroc_ci95": [
+        0.9879,
+        0.9963
+      ],
+      "miss_rate_at_val_far2pct": 0.042,
+      "test_far_at_that_threshold": 0.0176,
+      "ece_10bin": 0.0176,
+      "latency_ms": {
+        "gpu_batch1": 35.1435,
+        "gpu_batch128": 1.7561
+      },
+      "auroc_minus_logistic_ci95": [
+        -0.0075,
+        -0.0016
+      ]
+    }
+  },
+  "laya": {
+    "model": "convaiinnovations/laya/typed-decisions",
+    "variants_val_auroc": {
+      "json/q_violation": 0.4459,
+      "json/q_missing": 0.079,
+      "text/q_violation": 0.9783,
+      "text/q_missing": 0.9982
+    },
+    "version": "0.4.35",
+    "device": "cuda",
+    "dtype": "torch.bfloat16",
+    "gpu": "NVIDIA GeForce RTX 3090",
+    "selected_state": "text",
+    "selected_question": "Is the worker missing a hard hat?",
+    "example_state": "Head-crop classifier: 0% probability that the head has no hard hat. Object detector: hard hat seen with confidence 0.88; bare head seen with confidence 0.00. Head box 52x64 px."
+  },
+  "notes": [
+    "Laya fine-tuning not run: the package exposes no fine-tuning API for the ModernBERT checkpoints; its documented route is a separate RLCD training notebook (Kaggle 2xT4 / Apple MPS script). `Agent.fit` exists only for the different vegaml reader (Qwen 0.8B), not this checkpoint."
+  ]
+}

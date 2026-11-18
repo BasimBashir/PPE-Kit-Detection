@@ -173,6 +173,28 @@ class EventAction(Base):
     created_at: Mapped[datetime] = mapped_column(TS, default=utcnow)
 
 
+class TeacherReview(Base):
+    """Asynchronous teacher review of one head crop (advisory; never changes an event). Also the distillation
+    dataset: crop + p_model + p_teacher -> scripts/ml/export_teacher_labels.py."""
+
+    __tablename__ = "teacher_reviews"
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    # violation: the reviewed event; compliant sample: the event it ESCALATED to (None when it stayed compliant)
+    event_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("events.id", ondelete="SET NULL"), index=True)
+    kind: Mapped[str] = mapped_column(String(16))  # violation | compliant
+    camera_id: Mapped[str] = mapped_column(String(32))
+    track_id: Mapped[int] = mapped_column(Integer)
+    crop_path: Mapped[str] = mapped_column(Text)  # relative to the evidence root (teacher/...)
+    p_model: Mapped[float] = mapped_column(Float)
+    p_teacher: Mapped[float] = mapped_column(Float)
+    fused: Mapped[float] = mapped_column(Float)
+    verdict: Mapped[str] = mapped_column(String(24), index=True)  # CONFIRMED|LIKELY_FALSE_ALERT|ESCALATED|COMPLIANT
+    provider: Mapped[str] = mapped_column(String(32))
+    latency_ms: Mapped[float] = mapped_column(Float)
+    raw: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    created_at: Mapped[datetime] = mapped_column(TS, default=utcnow, index=True)
+
+
 class AuditLog(Base):
     __tablename__ = "audit_logs"
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)

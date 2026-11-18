@@ -15,7 +15,7 @@ from app.repositories import events as ev_repo
 from app.repositories import rules as rules_repo
 from app.repositories.misc import audit
 from app.schemas.requests import FeedbackIn, NoteIn, RulePatch
-from app.schemas.serializers import action_out, event_out, rule_out
+from app.schemas.serializers import action_out, event_out, rule_out, teacher_review_out
 
 router = APIRouter(prefix="/api/v1", tags=["events", "rules"])
 
@@ -50,7 +50,15 @@ def list_events(camera_id: str | None = None,
 @router.get("/events/{event_id}")
 def get_event(event_id: uuid.UUID, s: Session = Depends(db), _u: User = Depends(require("viewer"))):
     e = _event_or_404(s, event_id)
-    return {**_out(s, e), "actions": [action_out(a) for a in ev_repo.actions_for(s, e.id)]}
+    return {**_out(s, e), "actions": [action_out(a) for a in ev_repo.actions_for(s, e.id)],
+            "teacher_review": teacher_review_out(ev_repo.teacher_review_for(s, e.id))}
+
+
+@router.get("/teacher/summary", tags=["teacher"])
+def teacher_summary(c: AppContext = Depends(ctx), s: Session = Depends(db), _u: User = Depends(require("viewer"))):
+    t = c.cfg.teacher
+    return {"enabled": t.enabled, "provider": t.provider, "model": t.model, **ev_repo.teacher_summary(s),
+            "health": c.teacher.health() if c.teacher is not None else None}
 
 
 @router.get("/events/{event_id}/evidence")

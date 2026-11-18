@@ -1,0 +1,117 @@
+{
+  "provider": "gemini",
+  "model": "gemini-decision-1",
+  "endpoint": "POST https://generativelanguage.googleapis.com/v1beta/decisions (x-goog-api-key header, noul question)",
+  "question": "This is a crop of one person's head from a construction-site safety camera. Is the person NOT wearing a hard hat / safety helmet (bare head, cap, hood or hair only)?",
+  "data": "public CC0 hard-hat test split head crops only (oracle boxes); no site footage was sent",
+  "set": {
+    "balanced_per_class": 150,
+    "seed": 42,
+    "classifier_errors_full_test_split": 65,
+    "classifier_test_split_n": 2378,
+    "benchmark_n": 351,
+    "with_teacher_answer": 351,
+    "teacher_refused_400": 0
+  },
+  "note": "The set is enriched with ALL classifier errors, so error counts are not deployment rates.",
+  "chosen_on_tune_half": {
+    "weight": 0.25,
+    "escalate_threshold": 0.2,
+    "false_alert_threshold": 0.61,
+    "constraints": {
+      "max_true_alerts_wrongly_tagged": 0.02,
+      "max_compliant_falsely_escalated": 0.02
+    }
+  },
+  "report_half": {
+    "n": 168,
+    "no_helmet": 85,
+    "teacher": {
+      "accuracy": 0.75,
+      "auroc": 0.9463,
+      "ece": 0.1743
+    },
+    "our_classifier": {
+      "accuracy": 0.8214,
+      "auroc": 0.9657,
+      "ece": 0.1315
+    },
+    "fused_at_chosen_w": {
+      "accuracy": 0.8452,
+      "auroc": 0.9717,
+      "ece": 0.1094
+    },
+    "policy": {
+      "missed_violations": 26,
+      "escalated": 20,
+      "false_alerts": 4,
+      "false_alerts_tagged": 2,
+      "true_alerts": 59,
+      "true_alerts_wrongly_tagged": 1,
+      "true_compliant": 79,
+      "false_escalations": 3,
+      "suppressed": 0
+    }
+  },
+  "tune_half": {
+    "n": 183,
+    "no_helmet": 104,
+    "teacher": {
+      "accuracy": 0.7541,
+      "auroc": 0.9405,
+      "ece": 0.1763
+    },
+    "our_classifier": {
+      "accuracy": 0.8087,
+      "auroc": 0.9546,
+      "ece": 0.147
+    },
+    "fused_at_chosen_w": {
+      "accuracy": 0.8197,
+      "auroc": 0.9614,
+      "ece": 0.1331
+    },
+    "policy": {
+      "missed_violations": 27,
+      "escalated": 24,
+      "false_alerts": 8,
+      "false_alerts_tagged": 1,
+      "true_alerts": 77,
+      "true_alerts_wrongly_tagged": 1,
+      "true_compliant": 71,
+      "false_escalations": 1,
+      "suppressed": 0
+    }
+  },
+  "all": {
+    "n": 351,
+    "no_helmet": 189,
+    "teacher": {
+      "accuracy": 0.7521,
+      "auroc": 0.9431,
+      "ece": 0.1753
+    },
+    "our_classifier": {
+      "accuracy": 0.8148,
+      "auroc": 0.9596,
+      "ece": 0.1367
+    },
+    "fused_at_chosen_w": {
+      "accuracy": 0.8319,
+      "auroc": 0.9656,
+      "ece": 0.1178
+    }
+  },
+  "latency_ms": {
+    "p50": 1400.4,
+    "p95": 7882.2,
+    "n": 351
+  },
+  "requests": {
+    "http_attempts_logged": 351,
+    "by_status": {
+      "ok": 351
+    },
+    "note": "plus 1 manual probe request before the benchmark (endpoint check)"
+  }
+}

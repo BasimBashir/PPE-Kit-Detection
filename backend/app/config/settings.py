@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     ppe_spool_dir: Path = Path("spool")
     ppe_models_dir: Path = Path("models")
     ppe_enable_fault_injection: bool = False  # enables /api/v1/system/faults (tests & demo only)
+    gemini_api_key: SecretStr | None = None  # teacher review (provider gemini); registered for log redaction
 
     api_host: str = "127.0.0.1"
     api_port: int = 8000
@@ -137,6 +138,22 @@ class DemoConfig(BaseModel):
         return v.rstrip("/")
 
 
+class TeacherConfig(BaseModel):
+    """Asynchronous teacher review of head crops (app/inference/teacher.py). Off by default; never on the alert
+    path. Probabilities are P(no helmet); fused = weight * p_teacher + (1 - weight) * p_model."""
+
+    enabled: bool = False
+    provider: Literal["gemini", "systemone", "fake"] = "gemini"
+    model: str = "gemini-decision-1"
+    base_url: str = "https://generativelanguage.googleapis.com/v1beta"
+    weight: float = Field(0.5, ge=0, le=1)
+    escalate_threshold: float = Field(0.8, ge=0, le=1)  # compliant sample with fused above => new visible event
+    false_alert_threshold: float = Field(0.2, ge=0, le=1)  # alert with fused below => tagged for human review
+    compliant_sample_rate: float = Field(0.05, ge=0, le=1)  # share of tracks turning COMPLIANT sent for review
+    max_reviews_per_minute: int = Field(30, ge=1)
+    timeout_s: float = Field(30.0, gt=0)  # live gemini-decision-1 p95 is ~8 s; 5 s truncated real calls
+
+
 class AppConfig(BaseModel):
     mode: Literal["demo", "live"] = "demo"  # demo => UI shows "SIMULATED SOURCES" banner
     pipeline: PipelineConfig = PipelineConfig()
@@ -146,6 +163,7 @@ class AppConfig(BaseModel):
     alerts: AlertsConfig = AlertsConfig()
     evidence: EvidenceConfig = EvidenceConfig()
     demo: DemoConfig = DemoConfig()
+    teacher: TeacherConfig = TeacherConfig()
 
 
 # ---------------------------------------------------------------- models.yaml

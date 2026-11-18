@@ -15,11 +15,11 @@ import uuid
 from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import numpy as np
-from sqlalchemy import update
+from sqlalchemy import or_, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import DBAPIError, OperationalError
 
@@ -30,6 +30,7 @@ from app.evidence.annotate import annotate_violation
 from app.evidence.store import EvidenceStore
 from app.models import AlertOutbox, Event
 from app.observability import metrics as m
+from app.ppe.association import Associator
 from app.ppe.geometry import iou
 from app.ppe.types import Box
 
@@ -74,6 +75,7 @@ class _Active:
     last_head: Box | None = None
     last_db_update: float = 0.0
     ended_mono: float | None = None
+    seeded: bool = False  # loaded from the events table at start (previous worker run)
 
 
 def head_distance(a: Box | None, b: Box | None) -> float:
@@ -109,7 +111,8 @@ def insert_event_payload(session_factory: SessionFactory, payload: dict[str, Any
 class EventService(threading.Thread):
     def __init__(self, session_factory: SessionFactory, evidence: EvidenceStore, spool: EventSpool,
                  cfg: AlertsConfig, run_id: str, channels: list[str],
-                 notify: Callable[[dict[str, Any]], None] | None = None, replay_interval_s: float = 2.0):
+                 notify: Callable[[dict[str, Any]], None] | None = None, replay_interval_s: float = 2.0,
+                 teacher_enabled: bool = False):
         super().__init__(name="event-service", daemon=True)
         self.sf, self.evidence, self.spool, self.cfg = session_factory, evidence, spool, cfg
         self.run_id, self.channels = run_id, channels
@@ -122,6 +125,7 @@ class EventService(threading.Thread):
         self.db_ok = True
         self.db_retry_at = 0.0  # circuit breaker: no DB attempts (except replay) until this monotonic time
         self.processed = 0
+        self.teacher_enabled = teacher_enabled  # emit head crops for asynchronous teacher review (API process)
 
     # ------------------------------------------------------------ producer API (inference thread)
     def submit_confirmed(self, v: ConfirmedViolation) -> None:
@@ -133,6 +137,12 @@ class EventService(threading.Thread):
 
     def submit_cleared(self, camera_id: str, track_id: int, rule_id: str, when: float) -> None:
         self._put(("cleared", (camera_id, track_id, rule_id, when)))
+
+    def submit_teacher_sample(self, camera_id: str, track_id: int, rule_id: str, zone_id: str | None, severity: str,
+                              person_box: Box, crop: np.ndarray, p_model: float, captured_at: float) -> None:
+        """A track judged COMPLIANT, sampled for teacher review (that is where dangerous misses hide)."""
+        self._put(("sample", ("compliant", None, camera_id, track_id, rule_id, zone_id, severity, person_box, crop,
+                              p_model, captured_at)), droppable=True)
 
     def _put(self, item: tuple[str, Any], droppable: bool = False) -> None:
         try:
@@ -153,6 +163,7 @@ class EventService(threading.Thread):
 
     # ------------------------------------------------------------ worker thread
     def run(self) -> None:
+        self.seed_from_db()  # on this thread: submissions queue up meanwhile, inference is never blocked
         last_replay = 0.0
         while not self._stop_evt.is_set() or not self.q.empty():
             try:
@@ -161,7 +172,8 @@ class EventService(threading.Thread):
                 kind = None
             if kind is not None:
                 try:
-                    {"confirmed": self._confirmed, "still": self._still, "cleared": self._cleared}[kind](data)
+                    {"confirmed": self._confirmed, "still": self._still, "cleared": self._cleared,
+                     "sample": self._teacher_candidate}[kind](data)
                 except Exception:
                     log.exception("event processing failed (%s)", kind)
                 finally:
@@ -170,6 +182,39 @@ class EventService(threading.Thread):
             if time.monotonic() - last_replay >= self.replay_interval_s:
                 last_replay = time.monotonic()
                 self.replay_spool()
+
+    def seed_from_db(self) -> int:
+        """Rebuild spatial-dedupe memory from recent events so a worker restart does not re-alert (ADR-006/007).
+
+        Track ids restart with the tracker, so seeded events match on place (person box), never on track id.
+        Head ROIs are not persisted, so only the person-box IoU applies to seeded events. Never raises.
+        """
+        window = max(self.cfg.cooldown_s, self.cfg.spatial_dedupe_s)
+        if window <= 0:
+            return 0
+        cutoff = datetime.now(UTC) - timedelta(seconds=window)
+        try:
+            with session_scope(self.sf) as s:
+                rows = s.execute(select(Event.id, Event.camera_id, Event.rule_id, Event.last_box, Event.last_seen_at,
+                                        Event.episode_ended_at)
+                                 .where(or_(Event.last_seen_at >= cutoff, Event.episode_ended_at >= cutoff))
+                                 .order_by(Event.last_seen_at)).all()
+        except Exception as e:  # noqa: BLE001 - seeding is best effort; alerting must start regardless
+            if isinstance(e, DB_DOWN):
+                self._db_down()  # same breaker as any failed DB call: first events spool instead of waiting
+            log.warning("could not seed dedupe state from the database (%s) - starting empty", type(e).__name__)
+            return 0
+        n = 0
+        for event_id, camera_id, rule_id, box, last_seen, ended in rows:
+            if not box:
+                continue
+            # an episode still OPEN in the DB ended when the previous worker stopped seeing it
+            mono = time.monotonic() - max(0.0, time.time() - max(last_seen, ended or last_seen).timestamp())
+            self.recent.setdefault(camera_id, deque(maxlen=32)).append(
+                _Active(event_id, rule_id, tuple(box), mono, ended_mono=mono, seeded=True))
+            n += 1
+        log.info("seeded dedupe state with %d recent events", n)
+        return n
 
     def replay_spool(self) -> int:
         try:
@@ -209,7 +254,9 @@ class EventService(threading.Thread):
             return
         best = (0.0, None)
         for r in self.recent.get(v.camera_id, ()):
-            if r.rule_id != v.rule_id or now - r.last_seen_mono >= self.cfg.spatial_dedupe_s:
+            # a seeded event also stands in for the cooldown re-arm its (now meaningless) track id would have had
+            window = max(self.cfg.cooldown_s, self.cfg.spatial_dedupe_s) if r.seeded else self.cfg.spatial_dedupe_s
+            if r.rule_id != v.rule_id or now - r.last_seen_mono >= window:
                 continue
             o = iou(r.last_box, v.person_box)
             hd = head_distance(r.last_head, v.head_roi)
@@ -217,7 +264,8 @@ class EventService(threading.Thread):
             # Person boxes jump under occlusion; head position is the steadier identity cue (ID switch / loop).
             if o >= self.cfg.spatial_dedupe_iou or hd <= self.cfg.spatial_dedupe_head_dist:
                 self.active[key] = r  # new track id, same person/place: adopt the existing event
-                self._reopen(r, v, "spatial")
+                self._reopen(r, v, "restart" if r.seeded else "spatial")
+                r.seeded = False  # live in this run from now on
                 return
         log.info("new event %s track %d (closest recent event: iou=%.2f, last seen %s s ago)",
                  v.camera_id, v.track_id, best[0], best[1])
@@ -274,6 +322,10 @@ class EventService(threading.Thread):
             m.ppe_event_confirmation_latency_seconds.observe(max(0.0, persisted - v.frame_captured_at))
             self.notify({"type": "event", "action": "created", "event_id": str(event_id),
                          "camera_id": v.camera_id, "persisted_at": persisted})
+            if self.teacher_enabled and v.head_roi is not None:
+                self._teacher_candidate(("violation", event_id, v.camera_id, v.track_id, v.rule_id, v.zone_id,
+                                         v.severity, v.person_box, Associator._crop(v.image, v.head_roi),
+                                         v.mean_confidence, v.frame_captured_at))
         except DB_DOWN as e:
             self._db_down()
             log.warning("database unavailable (%s) - event %s spooled", type(e).__name__, event_id)
@@ -281,6 +333,16 @@ class EventService(threading.Thread):
             m.ppe_events_created_total.labels(v.camera_id).inc()
             self.notify({"type": "event", "action": "spooled", "event_id": str(event_id),
                          "camera_id": v.camera_id, "persisted_at": None})
+
+    def _teacher_candidate(self, data: tuple) -> None:
+        """Save the (privacy-masked) head crop and hand it to the API's teacher reviewer. Off the alert path."""
+        kind, event_id, camera_id, track_id, rule_id, zone_id, severity, box, crop, p_model, captured_at = data
+        rel, _ = self.evidence.save(uuid.uuid4(), crop, captured_at, prefix="teacher/")
+        if rel:
+            self.notify({"type": "teacher_candidate", "kind": kind, "event_id": event_id and str(event_id),
+                         "camera_id": camera_id, "track_id": track_id, "rule_id": rule_id, "zone_id": zone_id,
+                         "severity": severity, "person_box": list(box), "crop_path": rel,
+                         "p_model": round(float(p_model), 4), "captured_at": captured_at})
 
     def _still(self, data: tuple[str, int, str, Box]) -> None:
         camera_id, track_id, rule_id, box, head = data

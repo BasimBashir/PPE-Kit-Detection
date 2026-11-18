@@ -10,6 +10,7 @@ import logging
 import multiprocessing as mp
 import os
 import queue
+import random
 import shutil
 import threading
 import time
@@ -108,7 +109,8 @@ class PipelineWorker:
         self.spool = EventSpool(settings.resolve(settings.ppe_spool_dir))
         channels = ["dashboard"] + (["local_sound"] if app_cfg.alerts.local_sound_enabled else [])
         self.events = EventService(self.sf, self.evidence, self.spool, app_cfg.alerts, self.run_id, channels,
-                                   notify=self._send)
+                                   notify=self._send, teacher_enabled=app_cfg.teacher.enabled)
+        self.teacher_sample_rate = app_cfg.teacher.compliant_sample_rate if app_cfg.teacher.enabled else 0.0
         self.cond = threading.Condition()
         self.cams: dict[str, CamRuntime] = {}
         self.lock = threading.RLock()  # guards self.cams structure during reloads vs. the inference loop
@@ -356,6 +358,14 @@ class PipelineWorker:
                         cr.name))
                 elif tr.prev is S.CONFIRMED_NON_COMPLIANT and tr.new is S.CLEARED:
                     self.events.submit_cleared(cr.cfg.id, tr.track_id, rr.id, tr.ts)
+                elif tr.new is S.COMPLIANT and random.random() < self.teacher_sample_rate:
+                    o = rr.fsm.tracks[tr.track_id].last_observation
+                    if o is not None and o.head_roi is not None:
+                        if masked is None:
+                            masked = apply_privacy_masks(frame.image, cr.zones)
+                        self.events.submit_teacher_sample(  # p_model = P(no helmet) = 1 - helmet confidence
+                            cr.cfg.id, tr.track_id, rr.id, rr.zone_id, rr.severity, o.person_box,
+                            Associator._crop(masked, o.head_roi), 1.0 - o.confidence, frame.captured_at)
             for o in obs:
                 state = rr.fsm.state_of(o.track_id)
                 if state is S.CONFIRMED_NON_COMPLIANT:

@@ -19,8 +19,8 @@ login rate-limited (5 attempts per 60 s per client).
 - OpenTelemetry (deferred).
 
 ## Trade-offs
-Opaque tokens need a DB lookup per request (negligible at this scale). No SSO/LDAP; users are created through the API only
-(no users page).
+Opaque tokens need a DB lookup per request (negligible at this scale). No SSO/LDAP; users are managed through the API and the
+admin-only Users page.
 
 ## Consequences
 Logout and revocation take effect immediately. Credentials referenced as `env:PREFIX` are resolved only at connect time (worker
@@ -33,4 +33,5 @@ and error messages (NFR-SEC-001).
   `test_persistence.py::test_auth_hash_sessions_expiry_revocation`; `backend/tests/unit/test_redaction_and_uri.py` (20 tests).
 
 ## Follow-up actions
-Users page in the dashboard; TLS termination guidance for non-localhost deployments.
+~~Users page in the dashboard~~ done (`config/users`, admin-only: create, role change, enable/disable with a
+self-lockout guard); TLS termination guidance for non-localhost deployments.

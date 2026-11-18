@@ -9,7 +9,7 @@ from datetime import datetime
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
-from app.models import Event, EventAction, utcnow
+from app.models import Event, EventAction, TeacherReview, utcnow
 
 
 class StateConflict(Exception):
@@ -56,6 +56,25 @@ def get_event(s: Session, event_id: uuid.UUID) -> Event | None:
 
 def actions_for(s: Session, event_id: uuid.UUID) -> list[EventAction]:
     return list(s.scalars(select(EventAction).where(EventAction.event_id == event_id).order_by(EventAction.id)))
+
+
+def teacher_review_for(s: Session, event_id: uuid.UUID) -> TeacherReview | None:
+    return s.scalars(select(TeacherReview).where(TeacherReview.event_id == event_id)
+                     .order_by(TeacherReview.id.desc()).limit(1)).first()
+
+
+def teacher_summary(s: Session) -> dict:
+    """Counts by verdict and how often the teacher alone (p >= 0.5) agrees with the on-site decision."""
+    says = (TeacherReview.p_teacher >= 0.5).label("teacher_no_helmet")
+    rows = s.execute(select(TeacherReview.verdict, TeacherReview.kind, says, func.count())
+                     .group_by(TeacherReview.verdict, TeacherReview.kind, says)).all()
+    by_verdict: dict[str, int] = {}
+    agree = total = 0
+    for verdict, kind, teacher_says_no_helmet, n in rows:
+        by_verdict[verdict] = by_verdict.get(verdict, 0) + n
+        total += n
+        agree += n if teacher_says_no_helmet == (kind == "violation") else 0
+    return {"total": total, "by_verdict": by_verdict, "agreement_rate": round(agree / total, 4) if total else None}
 
 
 def _act(s: Session, ev: Event, actor: str, action: str, note: str | None) -> None:

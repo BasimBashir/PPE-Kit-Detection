@@ -62,12 +62,12 @@ class Notify(list):
         self.append(msg)
 
 
-def make_service(sf, tmp_path, cfg=None, disk_free=10**12):
+def make_service(sf, tmp_path, cfg=None, disk_free=10**12, run_id="run1"):
     ev_store = EvidenceStore(tmp_path / "evidence", EvidenceConfig(min_free_bytes=10**9),
                              disk_usage=lambda _p: SimpleNamespace(free=disk_free))
     note = Notify()
     svc = EventService(sf, ev_store, EventSpool(tmp_path / "spool"), cfg or AlertsConfig(cooldown_s=60),
-                       run_id="run1", channels=["dashboard"], notify=note,
+                       run_id=run_id, channels=["dashboard"], notify=note,
                        replay_interval_s=float("inf"))  # no background replay (3600 still fired once if uptime > 1 h)
     svc.start()
     return svc, note, ev_store
@@ -129,6 +129,50 @@ def test_spatial_dedupe_merges_new_track_at_same_place(seeded, tmp_path):
     svc.drain()
     svc.stop()
     assert count(seeded, Event) == 2
+
+
+def test_restart_within_cooldown_reopens_instead_of_duplicating(seeded, tmp_path):
+    cfg = AlertsConfig(cooldown_s=60, spatial_dedupe_s=0)  # only the cooldown re-arm may merge
+    svc, _, _ = make_service(seeded, tmp_path, cfg)
+    svc.submit_confirmed(violation(track=7, seq=1))
+    svc.submit_cleared("cam01", 7, "hardhat-required", time.time())
+    svc.drain()
+    svc.stop()
+    # worker restart: new run id, empty tracker - the same person re-confirms with the same track id
+    svc2, _, _ = make_service(seeded, tmp_path, cfg, run_id="run2")
+    svc2.submit_confirmed(violation(track=7, seq=1))
+    svc2.submit_confirmed(violation(track=1, box=(600.0, 100.0, 700.0, 400.0)))  # someone else -> new event
+    svc2.drain()
+    svc2.stop()
+    assert count(seeded, Event) == 2
+    with session_scope(seeded) as s:
+        e = s.scalar(select(Event).where(Event.episode_id.like("run1:%")))
+        assert e.reconfirm_count == 1 and e.episode_ended_at is None
+
+
+def test_restart_spatial_dedupe_catches_new_track_id(seeded, tmp_path):
+    cfg = AlertsConfig(spatial_dedupe_s=30)
+    svc, _, _ = make_service(seeded, tmp_path, cfg)
+    svc.submit_confirmed(violation(track=7))
+    svc.drain()
+    svc.stop()
+    svc2, note, _ = make_service(seeded, tmp_path, cfg, run_id="run2")
+    svc2.submit_confirmed(violation(track=3, box=(105.0, 102.0, 205.0, 405.0)))  # same person, new tracker id
+    svc2.drain()
+    svc2.stop()
+    assert count(seeded, Event) == 1 and [n["action"] for n in note] == ["updated"]
+
+
+def test_restart_seeding_with_db_down_starts_empty(seeded, tmp_path):
+    def down_sf():
+        raise OperationalError("connect", {}, Exception("connection refused"))
+
+    svc, note, _ = make_service(down_sf, tmp_path)
+    svc.submit_confirmed(violation())  # alerting still works: spooled for replay
+    svc.drain()
+    svc.stop()
+    assert len(svc.spool.pending()) == 1 and [n["action"] for n in note] == ["spooled"]
+    assert [a.seeded for a in svc.recent["cam01"]] == [False]
 
 
 def test_db_outage_spools_then_replays_exactly_once(seeded, tmp_path):

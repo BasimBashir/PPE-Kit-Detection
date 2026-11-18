@@ -4,7 +4,21 @@ import { api, auth, imageUrl, type EventQuery } from "../services/api";
 import { useLive } from "../hooks/useLiveSocket";
 import { EventStatus } from "../components/StatusBadge";
 import { fmtDateTime, fmtNum, fmtSec } from "../components/format";
-import type { EventDetail, Page, PPEEvent } from "../types/api";
+import type { EventDetail, Page, PPEEvent, TeacherReview, TeacherVerdict } from "../types/api";
+
+const VERDICT: Record<TeacherVerdict, string> = {
+  CONFIRMED: "agrees with the alert", LIKELY_FALSE_ALERT: "likely false alert — for human review (alert unchanged)",
+  ESCALATED: "raised by teacher review", COMPLIANT: "agrees: compliant",
+};
+
+/** Advisory second opinion from the asynchronous teacher model; it never changes the alert. */
+export function TeacherRow({ review }: { review: TeacherReview | null }) {
+  if (!review) return null;
+  return (<>
+    <dt>Teacher review</dt>
+    <dd>{VERDICT[review.verdict]} · P(no hard hat) teacher {fmtNum(review.p_teacher, 2)} / model {fmtNum(review.p_model, 2)} / fused {fmtNum(review.fused, 2)} <span className="muted">({review.provider}, {fmtNum(review.latency_ms, 0)} ms)</span></dd>
+  </>);
+}
 
 function Evidence({ id, has, className }: { id: string; has: boolean; className?: string }) {
   const [src, setSrc] = useState<string | null>(null);
@@ -76,7 +90,7 @@ export function Events() {
             <tr key={e.id} className={e.id === openId ? "selected" : ""} onClick={() => setParams({ open: e.id })} tabIndex={0}
               onKeyDown={(k) => k.key === "Enter" && setParams({ open: e.id })}>
               <td><Evidence id={e.id} has={e.has_evidence} className="thumb" /></td>
-              <td>{fmtDateTime(e.confirmed_at)}</td><td>{e.camera_name}</td><td>#{e.track_id}{e.reconfirm_count ? ` (+${e.reconfirm_count})` : ""}</td>
+              <td>{fmtDateTime(e.confirmed_at)}</td><td>{e.camera_name}</td><td>#{e.track_id}{e.reconfirm_count ? ` (+${e.reconfirm_count})` : ""}{e.confidence_summary.raised_by === "teacher_review" && <span className="muted small"> · teacher review</span>}</td>
               <td><EventStatus status={e.status} /></td><td>{e.feedback?.replace("_", " ").toLowerCase() ?? "—"}</td>
               <td>{fmtSec(e.latency.time_to_confirm_s)}</td><td>{fmtSec(e.latency.confirm_to_persist_s)}</td><td>{fmtSec(e.latency.persist_to_dashboard_s)}</td>
             </tr>))}</tbody>
@@ -103,6 +117,7 @@ export function Events() {
             <dt>First seen → confirmed</dt><dd>{fmtDateTime(detail.first_seen_at)} → {fmtDateTime(detail.confirmed_at)} ({fmtSec(detail.latency.time_to_confirm_s)})</dd>
             <dt>Frame → persisted</dt><dd>{fmtSec(detail.latency.frame_to_persist_s ?? null)}</dd>
             <dt>Episode ended</dt><dd>{fmtDateTime(detail.episode_ended_at)}</dd>
+            <TeacherRow review={detail.teacher_review} />
             <dt>Models</dt><dd>{Object.entries(detail.model_versions).map(([k, v]) => <code key={k}>{k}: {v} </code>)}</dd>
           </dl>
           {canAct && (

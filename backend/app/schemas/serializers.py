@@ -6,7 +6,7 @@ import os
 from datetime import datetime
 from typing import Any
 
-from app.models import AuditLog, Camera, Event, EventAction, PPERule, User, Zone
+from app.models import AuditLog, Camera, Event, EventAction, PPERule, TeacherReview, User, Zone
 
 
 def iso(dt: datetime | None) -> str | None:
@@ -70,6 +70,13 @@ def event_out(e: Event, camera_name: str | None = None) -> dict[str, Any]:
                     "frame_to_persist_s": _secs(e.frame_captured_at, e.persisted_at),
                     "persist_to_dashboard_s": _secs(e.persisted_at, e.dashboard_rendered_at)},
     }
+
+
+def teacher_review_out(r: TeacherReview | None) -> dict[str, Any] | None:
+    if r is None:
+        return None
+    return {"kind": r.kind, "verdict": r.verdict, "p_teacher": r.p_teacher, "p_model": r.p_model, "fused": r.fused,
+            "provider": r.provider, "latency_ms": r.latency_ms, "created_at": iso(r.created_at)}
 
 
 def action_out(a: EventAction) -> dict[str, Any]:

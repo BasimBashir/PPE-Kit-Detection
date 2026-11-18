@@ -32,14 +32,17 @@ class EvidenceStore:
         except OSError:
             return 0
 
-    def save(self, event_id: uuid.UUID, image_bgr: np.ndarray, captured_at: float) -> tuple[str | None, str | None]:
-        """Returns (relative posix path, error). Opaque filename = event uuid (no names / identities)."""
+    def save(
+        self, event_id: uuid.UUID, image_bgr: np.ndarray, captured_at: float, prefix: str = ""
+    ) -> tuple[str | None, str | None]:
+        """Returns (relative posix path, error). Opaque filename = event uuid (no names / identities).
+        prefix "teacher/" keeps teacher-review head crops apart (same retention and traversal checks)."""
         if self.free_bytes() < self.cfg.min_free_bytes:
             m.ppe_evidence_failures_total.labels("disk_low").inc()
             log.warning("evidence skipped for %s: free space below %d bytes", event_id, self.cfg.min_free_bytes)
             return None, "disk_low"
         day = datetime.fromtimestamp(captured_at, UTC)
-        rel = f"{day:%Y/%m/%d}/{event_id}.jpg"
+        rel = f"{prefix}{day:%Y/%m/%d}/{event_id}.jpg"
         dst = self.root / rel
         try:
             ok, buf = cv2.imencode(".jpg", image_bgr, [cv2.IMWRITE_JPEG_QUALITY, self.cfg.jpeg_quality])

@@ -1,15 +1,15 @@
 # Test report
 
-**Run date:** 2026-11-02 · **Host:** Windows 11, i5-12400F, RTX 3090, Python 3.12.10, Node 24.16 ·
-**Commit state:** local runs before the first commit; GitHub Actions CI re-runs backend tests (minus the GPU test), ruff, and the frontend type-check/tests/build on every push to `main` (promtool, alembic check and the live benchmarks are local only).
+**Run date:** 2026-11-18 (Phase 2) · **Host:** Windows 11, i5-12400F, RTX 3090, Python 3.12.10, Node 24.16 ·
+**Commit state:** local runs; GitHub Actions CI re-runs backend tests (minus the GPU test), ruff, and the frontend type-check/tests/build on every push to `main` (promtool, alembic check and the live benchmarks are local only).
 
 ## Results (exact commands, actual output)
 | Suite | Command | Result |
 |---|---|---|
-| Backend unit + integration + GPU | `cd backend && uv run pytest tests -q` (Docker services up) | **77 passed** in 34.0 s |
+| Backend unit + integration + GPU | `cd backend && uv run pytest tests -q` (Docker services up) | **98 passed** in 28.0 s |
 | Backend lint | `uv run ruff check backend/app backend/tests scripts` | clean |
 | Frontend types | `cd frontend && npx tsc --noEmit -p .` | clean |
-| Frontend unit | `npx vitest run` | **14 passed** |
+| Frontend unit | `npx vitest run` | **16 passed** |
 | Frontend build | `npm run build` | built (one >500 kB chunk warning from recharts; served locally) |
 | Prometheus rules | `promtool check rules deployments/docker/alert-rules.yml` | SUCCESS: 10 rules |
 | Migrations | `alembic check` | no drift between models and migration |
@@ -32,12 +32,27 @@
 | slot drops, scheduler fairness and pacing | `test_slot_drops_and_depth`, `test_fairness...`, `test_fps_pacing_and_no_burst_after_stall` |
 | config validation | `test_policy_validation`, `test_api.py::test_rules_validation...` |
 | credential redaction | `test_redaction_and_uri.py` (20 tests incl. PyAV 401 message, logging filter) |
+| teacher fusion/verdict policy incl. never-suppress over the full grid | `test_teacher.py` (11 tests) |
+| teacher providers (Gemini Decisions / SystemOne wire formats, circuit breaker, rate limiter) | `test_teacher.py` |
+| restart re-seed of cooldown/dedupe state (incl. DB-down fallback) | `integration/test_persistence.py` (3 tests) |
+| teacher review end-to-end (escalation visible; false-alert tag issues no UPDATE/DELETE) | `integration/test_teacher_review.py` (3 tests) |
+| camera-source ingest loop (flow, backoff/offline/recovery, watchdog) | `test_camera_source.py` (3 tests, local files) |
+| Users admin page (create, self-lockout guard) | `app.test.tsx` (frontend) |
 
 ## Integration (spec 19.2)
 Video → detection pipeline on real frames (GPU test), DB persistence, outbox retry/backoff/FAILED, REST camera/event
 workflows, WebSocket snapshot + live event + render ack, evidence snapshot creation and download, spool replay after DB
-outage, restart persistence (migrations + seed idempotency). RTSP ingest is exercised end-to-end by the live fault and
-load campaigns rather than a dedicated pytest (gap noted).
+outage, restart persistence (migrations + seed idempotency), teacher review against a fake provider (escalation via
+the normal event path; LIKELY_FALSE_ALERT verified to issue no UPDATE/DELETE against the original event). RTSP ingest
+is exercised end-to-end by the live fault and load campaigns plus the file-based camera-source unit tests (a live
+RTSP pytest remains a gap).
+
+## Live smoke test (2026-11-18, Phase 2)
+Complete app started with 10/10 simulated cameras online: teacher review verified with the deterministic fake
+provider (all four verdicts stored; one compliant miss escalated as a visible OPEN event, reason "raised by teacher
+review", fused 0.824) and then with live Gemini Decisions on the stock demo streams (~80 reviews, zero failures once
+the timeout default was raised 5 s → 30 s — live p95 ≈ 8 s; fix shipped in the default config). Teacher disabled for
+normal runs afterwards.
 
 ## Bugs found by the tests and fixed (selection)
 | Found by | Defect | Fix |

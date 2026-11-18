@@ -31,7 +31,7 @@ from app.config.settings import (
     load_rule_seeds,
 )
 from app.core.logging import setup_logging
-from app.core.redaction import redact
+from app.core.redaction import redact, register_secret
 from app.db.base import db_healthcheck, make_engine, make_session_factory, session_scope
 from app.db.migrate import upgrade_to_head
 from app.evidence.store import EvidenceStore
@@ -91,6 +91,8 @@ async def _retention_loop(c: AppContext) -> None:
 def _on_worker_message(c: AppContext, msg: dict) -> None:
     if msg.get("type") == "event" and c.dispatcher is not None:
         c.dispatcher.wake()
+    elif msg.get("type") == "teacher_candidate" and c.teacher is not None:
+        c.teacher.submit(msg)
 
 
 def _mark_cameras_unknown(c: AppContext, reason: str) -> None:
@@ -123,6 +125,16 @@ async def lifespan(app: FastAPI):
         channels["local_sound"] = local_sound_channel
     c.dispatcher = OutboxDispatcher(c.sf, c.cfg.alerts, channels)
     c.dispatcher.start()
+    key = c.settings.gemini_api_key.get_secret_value() if c.settings.gemini_api_key else None
+    register_secret(key)
+    if c.cfg.teacher.enabled:  # asynchronous and advisory: never on the alert path
+        from app.inference.teacher import build_teacher
+        from app.services.teacher_review import TeacherReviewer
+
+        c.teacher = TeacherReviewer(c.cfg.teacher, build_teacher(c.cfg.teacher, key), c.sf, c.evidence,
+                                    list(channels), on_event=c.dispatcher.wake)
+        c.teacher.start()
+        log.info("teacher review enabled (provider=%s, model=%s)", c.cfg.teacher.provider, c.cfg.teacher.model)
     tasks = [asyncio.create_task(routes_ws.periodic_broadcasts(c)), asyncio.create_task(_resource_loop(c)),
              asyncio.create_task(_retention_loop(c))]
     if c.cfg.mode == "demo":
@@ -152,6 +164,8 @@ async def lifespan(app: FastAPI):
         for t in tasks:
             t.cancel()
         await c.dispatcher.stop()
+        if c.teacher is not None:
+            await c.teacher.stop()
         if c.supervisor is not None:
             await asyncio.to_thread(c.supervisor.stop)
         if c.simulator is not None:

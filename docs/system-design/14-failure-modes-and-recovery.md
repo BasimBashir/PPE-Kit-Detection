@@ -46,8 +46,8 @@ Spool `spool/events.jsonl` (fsync'd) until replayed.
 Faults in one camera thread never block others (measured: unaffected cameras stayed at ~5 FPS).
 
 ## Failure modes
-Known limits: constant added network latency is invisible without source timestamps; cooldown/dedupe memory is lost on
-worker restart (possible duplicate alert after a crash).
+Known limits: constant added network latency is invisible without source timestamps; cooldown/dedupe memory is re-seeded
+from recent events on worker restart, but starts empty if the database is down at that moment (possible duplicate alert).
 
 ## Security / privacy
 Fault API disabled outside demo mode unless `PPE_ENABLE_FAULT_INJECTION=1`.

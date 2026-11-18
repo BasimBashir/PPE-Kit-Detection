@@ -24,13 +24,17 @@ Spatial dedupe can merge two different people who stand at the same spot within 
 
 ## Consequences
 Policy is configured in seconds-aware terms per rule (`configs/rules.example.yaml`: `confirm_n/confirm_m`, `clear_n/clear_m`)
-and validated by the API. Cooldown/dedupe memory lives in the worker process, so a worker restart can produce a duplicate alert.
+and validated by the API. Cooldown/dedupe memory lives in the worker process; on start it is re-seeded from recent `events`
+rows (person box within `max(cooldown_s, spatial_dedupe_s)`), so a restart merges a re-confirmation at the same place
+instead of re-alerting. Seeded events match on person-box IoU only (track ids restart; head ROIs are not persisted).
 On the looping demo clips the same workers reappear as new tracks every 7-33 s, which inflates events per camera-hour.
 
 ## Evidence / benchmark
 Measured (docs/benchmarks/README.md): minimum time to confirm (12 votes) 5.5 s / 2.2 s / 1.1 s at 2 / 5 / 10 processed FPS; observed time-to-confirm on events 2.1-3.6 s at 5 FPS. Spatial dedupe extended with a head-distance criterion after live runs showed person-box IoU of only 0.2-0.3 for the same person after ID switches.
-Unit tests: `backend/tests/unit/test_ppe_logic.py` (`test_confirm_exactly_at_n_of_m`, `test_single_miss_does_not_flap_and_uncertain_never_votes`, `test_clear_with_hysteresis_and_new_episode`, `test_duration_mode`, `test_both_mode_needs_count_and_duration`); dedupe/cooldown: `backend/tests/integration/test_persistence.py` (`test_cooldown_reopens_and_after_cooldown_creates_new`, `test_spatial_dedupe_merges_new_track_at_same_place`).
+Unit tests: `backend/tests/unit/test_ppe_logic.py` (`test_confirm_exactly_at_n_of_m`, `test_single_miss_does_not_flap_and_uncertain_never_votes`, `test_clear_with_hysteresis_and_new_episode`, `test_duration_mode`, `test_both_mode_needs_count_and_duration`); dedupe/cooldown: `backend/tests/integration/test_persistence.py` (`test_cooldown_reopens_and_after_cooldown_creates_new`, `test_spatial_dedupe_merges_new_track_at_same_place`, `test_restart_within_cooldown_reopens_instead_of_duplicating`,
+`test_restart_spatial_dedupe_catches_new_track_id`, `test_restart_seeding_with_db_down_starts_empty`).
 
 ## Follow-up actions
-Persist dedupe state across worker restarts; tune N-of-M on labelled episodes (event-level recall and false alerts per
-camera-hour) instead of demo footage.
+Done: dedupe state survives worker restarts (re-seeded from the `events` table; if the database is down at start the
+worker starts with empty state, as before). Open: tune N-of-M on labelled episodes (event-level recall and false alerts
+per camera-hour) instead of demo footage.

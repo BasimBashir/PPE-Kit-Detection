@@ -48,7 +48,7 @@ export type Feedback = "TRUE_POSITIVE" | "FALSE_POSITIVE";
 export interface PPEEvent {
   id: string; camera_id: string; camera_name: string; track_id: number; zone_id: string | null; rule_id: string;
   episode_id: string; status: EventStatus; severity: string; reason: string;
-  confidence_summary: { no_helmet_votes: number; decisive_votes: number; mean_confidence: number; roi_source: string; classifier_used: boolean };
+  confidence_summary: { no_helmet_votes: number; decisive_votes: number; mean_confidence: number; roi_source: string; classifier_used: boolean; raised_by?: "teacher_review" };
   first_seen_at: string; confirmed_at: string; frame_captured_at: string; persisted_at: string; last_seen_at: string;
   episode_ended_at: string | null; reconfirm_count: number; has_evidence: boolean; evidence_error: string | null;
   model_versions: Record<string, string>; feedback: Feedback | null; feedback_note: string | null;
@@ -56,7 +56,12 @@ export interface PPEEvent {
   latency: { time_to_confirm_s: number | null; confirm_to_persist_s: number | null; frame_to_persist_s?: number | null; persist_to_dashboard_s: number | null };
 }
 export interface EventAction { id: number; action: string; actor: string; note: string | null; created_at: string }
-export type EventDetail = PPEEvent & { actions: EventAction[] };
+export type TeacherVerdict = "CONFIRMED" | "LIKELY_FALSE_ALERT" | "ESCALATED" | "COMPLIANT";
+export interface TeacherReview {
+  kind: "violation" | "compliant"; verdict: TeacherVerdict; p_teacher: number; p_model: number; fused: number;
+  provider: string; latency_ms: number; created_at: string;
+}
+export type EventDetail = PPEEvent & { actions: EventAction[]; teacher_review: TeacherReview | null };
 export interface Page<T> { items: T[]; total: number; limit: number; offset: number }
 
 export interface StageStats { p50_ms: number; p95_ms: number; p99_ms: number; count: number }

@@ -11,6 +11,7 @@ from app.models.tables import (
     Session,
     Setting,
     SystemMetricsSnapshot,
+    TeacherReview,
     User,
     Zone,
     utcnow,
@@ -18,5 +19,5 @@ from app.models.tables import (
 
 __all__ = [
     "AlertOutbox", "AuditLog", "Base", "Camera", "CameraHealthRecord", "Event", "EventAction", "ModelVersion",
-    "PPERule", "Session", "Setting", "SystemMetricsSnapshot", "User", "Zone", "utcnow",
+    "PPERule", "Session", "Setting", "SystemMetricsSnapshot", "TeacherReview", "User", "Zone", "utcnow",
 ]

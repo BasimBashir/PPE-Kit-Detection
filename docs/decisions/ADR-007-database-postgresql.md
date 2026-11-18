@@ -32,4 +32,6 @@ model/migration drift. Backup and restore are documented in docs/operations/back
   0 pending after recovery, unaffected cameras stayed at 4.8-5.05 FPS.
 
 ## Follow-up actions
-Persist cooldown/dedupe memory (currently in-process) so a worker restart cannot produce a duplicate alert.
+Done: cooldown/dedupe memory is re-seeded from recent `events` rows when the worker starts, so a restart no longer
+re-alerts the same person at the same place (no new table; tests in `test_persistence.py::test_restart_*`). Remaining
+gap: if the database is unreachable at worker start, seeding is skipped and a duplicate alert is still possible.

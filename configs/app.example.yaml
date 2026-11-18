@@ -64,3 +64,15 @@ evidence:
   min_free_bytes: 1000000000
   jpeg_quality: 85
   retention_check_interval_s: 3600
+
+teacher:              # asynchronous review of head crops by an external decision model; never on the alert path
+  enabled: false      # off by default: no crops leave the site, zero behaviour change
+  provider: gemini    # gemini | systemone | fake ; gemini reads GEMINI_API_KEY from .env
+  model: gemini-decision-1
+  base_url: https://generativelanguage.googleapis.com/v1beta   # systemone: http://<host>:<port>
+  weight: 0.5                    # fused = weight * p_teacher + (1 - weight) * p_model   (p = P(no helmet))
+  escalate_threshold: 0.8        # compliant sample with fused above => new event "raised by teacher review"
+  false_alert_threshold: 0.2     # alert with fused below => tagged LIKELY_FALSE_ALERT (never suppressed)
+  compliant_sample_rate: 0.05    # share of tracks turning COMPLIANT that are reviewed
+  max_reviews_per_minute: 30
+  timeout_s: 30       # live gemini-decision-1 p95 is ~8 s

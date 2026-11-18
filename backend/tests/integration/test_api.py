@@ -166,3 +166,27 @@ def test_metrics_summary_shape_without_worker(client):
     assert mtr["aggregate"]["online"] == 0  # never report cameras ONLINE without a worker
     r = client.post("/api/v1/system/faults", headers=admin, json={"kind": "stall", "camera_id": "cam01"})
     assert r.status_code == 202
+
+
+def test_teacher_summary_and_event_detail(client, tmp_path):
+    from app.db.base import session_scope
+    from app.models import Event, TeacherReview
+
+    admin = login(client)
+    empty = client.get("/api/v1/teacher/summary", headers=admin).json()
+    assert empty["enabled"] is False and empty["total"] == 0 and empty["agreement_rate"] is None
+    _confirm(client.ctx, tmp_path)
+    with session_scope(client.ctx.sf) as s:
+        eid = s.query(Event.id).scalar()
+        s.add_all([TeacherReview(event_id=eid, kind="violation", camera_id="cam03", track_id=4, crop_path="teacher/a",
+                                 p_model=0.81, p_teacher=0.05, fused=0.1, verdict="LIKELY_FALSE_ALERT",
+                                 provider="fake", latency_ms=12.0, raw={}),
+                   TeacherReview(kind="compliant", camera_id="cam03", track_id=5, crop_path="teacher/b",
+                                 p_model=0.1, p_teacher=0.2, fused=0.15, verdict="COMPLIANT", provider="fake",
+                                 latency_ms=8.0, raw={})])
+    summ = client.get("/api/v1/teacher/summary", headers=admin).json()
+    assert summ["total"] == 2 and summ["by_verdict"] == {"LIKELY_FALSE_ALERT": 1, "COMPLIANT": 1}
+    assert summ["agreement_rate"] == 0.5 and summ["health"] is None
+    d = client.get(f"/api/v1/events/{eid}", headers=admin).json()
+    assert d["status"] == "OPEN" and d["teacher_review"]["verdict"] == "LIKELY_FALSE_ALERT"
+    assert d["teacher_review"]["p_teacher"] == 0.05

@@ -12,7 +12,7 @@ An independent, fully working portfolio project: 10 RTSP camera streams → pers
 - Docker Desktop running (or `dockerd` on Linux)
 - ffmpeg on `PATH` (for clip processing)
 - Node 24 + npm (for frontend build)
-- NVIDIA GPU with recent driver (optional — without it the script configures a CPU profile of 2 streams × 2 FPS; **this CPU path is not benchmarked or verified**)
+- NVIDIA GPU with recent driver (optional — without it the script configures a CPU profile of 2 streams × 2 FPS; CPU inference capacity is measured at ~5 cameras at 2 FPS on an i5-12400F, `docs/benchmarks/phase2-performance.md`; the full CPU-only app path is not end-to-end tested)
 - ~10 GB free disk space
 
 ```bash
@@ -76,13 +76,14 @@ flowchart LR
   end
   EV --> DB[("PostgreSQL<br/>events + outbox")]
   subgraph A["API process"]
-    API["FastAPI REST · WebSocket<br/>outbox dispatcher · supervisor"]
+    API["FastAPI REST · WebSocket<br/>outbox dispatcher · supervisor"] --> TCH["teacher review (off by default)<br/>asymmetric · never suppresses an alert"]
   end
+  EV -.-> TCH
   DB --> API --> UI["React dashboard"]
 ```
 
 - **Design documents** (17 + Mermaid sources): [docs/system-design](docs/system-design/README.md)
-- **Architecture Decision Records**: [docs/decisions](docs/decisions) (ADR-001…012)
+- **Architecture Decision Records**: [docs/decisions](docs/decisions) (ADR-001…013)
 - **Contracts / implementation plan**: [docs/implementation-plan.md](docs/implementation-plan.md)
 - **From the interview whiteboard to this implementation**: [docs/product/interview-baseline.md](docs/product/interview-baseline.md) maps every element of the original design exercise to what is implemented and the evidence for it — including the corrections (pose models do not track → ByteTrack per camera; IoU on the top 10–15 % of the box → keypoint head ROI with global matching; OBB not justified; frame counts → N-of-M decisive votes with seconds made explicit; "5k images ⇒ 80 % recall" and "1 FP / 2 h" not claimed; edge hardware not assumed; frozen-backbone fine-tuning measured, not assumed).
 
@@ -193,7 +194,10 @@ make down         # docker compose down
 | Time to confirm | ≥ 2.2 s by policy at 5 FPS; observed 2.1–3.6 s | `docs/benchmarks/README.md` |
 | Fault recovery | 13/13 scenarios recovered (e.g. unplug 0.6 s / 7.8 s, worker crash 0.6 s / 14.7 s, DB outage 0 lost) | `docs/benchmarks/fault_injection.md` |
 | 1 h soak | see `docs/benchmarks/soak_1h.md` | `docs/benchmarks/soak_1h.md` |
-| Tests | backend 77 passed (unit + integration + GPU); frontend 14 passed; ruff + tsc clean | `docs/testing/test-report.md` |
+| Teacher review (Gemini, live) | fused AUROC 0.972 vs 0.966 classifier-alone; 20/26 of our missed violations escalated; **0 alerts suppressed**; p95 7.9 s (async) | `docs/ml/teacher_eval.md` |
+| Last-layer fusion | logistic beats Laya on every metric (AUROC 0.9968 vs 0.9928); misses 4.7 % → 3.2 % at ≤ 2 % FAR | `docs/ml/fusion_eval.md` |
+| Distillation flywheel | runs end to end (export → retrain → holdout eval); no measured gain at 22–230 public labels — controls overlap | `docs/ml/distill_eval.md` |
+| Tests | backend 98 passed (unit + integration + GPU); frontend 16 passed; ruff + tsc clean | `docs/testing/test-report.md` |
 
 **These are desktop-GPU results — not edge-device results.** Next steps (not implemented): TensorRT FP16 engines, NVDEC decode, moving tracking/association off the GPU thread, DeepStream for the edge.
 
@@ -203,11 +207,11 @@ See the full analysis: [docs/benchmarks/README.md](docs/benchmarks/README.md)
 
 ## Known limitations
 
-- **Observed missed violations:** on the demo streams, caps and head wraps are accepted as hard hats (metal-workshop camera: 0 alerts although nobody wears one) and distant, small workers rarely reach confirmation. Hard-negative training data is the next step ([analysis](docs/benchmarks/README.md)).
+- **Observed missed violations:** on the demo streams, caps and head wraps are accepted as hard hats (metal-workshop camera: 0 alerts although nobody wears one) and distant, small workers rarely reach confirmation. The asynchronous teacher-review layer (ADR-013, off by default) is the designed mitigation; hard-negative training data is the next step ([analysis](docs/benchmarks/README.md)).
 - **Demo footage is stock video** of construction sites and factories, not ship cameras; detector training data are 416 px construction close-ups (domain gap). **No field accuracy, recall or false-alarm-rate claim is made.**
 - **Benchmarks are from one desktop RTX 3090** — not an edge device. TensorRT / NVDEC / DeepStream not implemented.
 - Constant network latency is not detectable without trusted camera timestamps (jitter is).
-- Cooldown/dedupe memory resets when the worker restarts (a duplicate alert after a crash is possible).
+- Cooldown/dedupe memory is re-seeded from recent events when the worker restarts, matching on person-box overlap only (head positions are not persisted); if the database is down at worker start it starts empty and a duplicate alert after a crash is still possible.
 - Ultralytics (AGPL-3.0) ⇒ this repo is AGPL-3.0; a closed commercial deployment needs a different model licence.
 
 ---

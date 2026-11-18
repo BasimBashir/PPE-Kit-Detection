@@ -7,7 +7,7 @@ import { Login } from "./features/Login";
 import { Overview } from "./features/Overview";
 import { CameraDetail, CameraWall } from "./features/Cameras";
 import { Events } from "./features/Events";
-import { CameraConfig, RulesSettings } from "./features/Admin";
+import { CameraConfig, RulesSettings, UsersAdmin } from "./features/Admin";
 import { SystemHealth } from "./features/SystemHealth";
 import { DemoControl } from "./features/DemoControl";
 
@@ -32,6 +32,7 @@ export default function App() {
         <Route path="health" element={<SystemHealth />} />
         <Route path="config/cameras" element={<RequireAuth role="admin"><CameraConfig /></RequireAuth>} />
         <Route path="config/rules" element={<RequireAuth role="admin"><RulesSettings /></RequireAuth>} />
+        <Route path="config/users" element={<RequireAuth role="admin"><UsersAdmin /></RequireAuth>} />
         <Route path="demo" element={<RequireAuth role="admin"><DemoControl /></RequireAuth>} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
