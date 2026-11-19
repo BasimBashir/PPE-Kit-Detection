@@ -21,7 +21,8 @@ Phase 2: asynchronous teacher review, measured last-layer fusion, distillation f
 - Performance (docs/benchmarks/phase2-performance.md): TensorRT FP16 measured (2.4× per-call at batch 1,
   1.25–1.35× at production batches), NVDEC probed and rejected (CPU decode faster on the dev host), CPU-only
   capacity measured (~5 cameras at 2 FPS), tracking placement measured (stays on the inference thread). Linux
-  + systemd and UDP transport runbook sections added.
+  + systemd and UDP transport runbook sections added. 8 h soak clean: 50.2/50 FPS, 10/10 cameras online,
+  0 worker restarts / 0 reconnects, worker RSS drift +0.9 MB/h (docs/benchmarks/soak_8h).
 - Dashboard: admin Users page (create, role change, enable/disable, self-lockout guard); camera-source ingest loop
   under unit test; teacher timeout default 5 s → 30 s (live Gemini p95 ≈ 8 s truncated real calls).
 

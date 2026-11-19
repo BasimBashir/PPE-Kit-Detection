@@ -153,5 +153,6 @@ section (unit from [deployments/linux/README.md](../../deployments/linux/README.
   cascade only.
 - **Multi-resolution sources** — all pipeline benchmarks use 720p; the NVDEC probe used a local 1080p file, not
   RTSP.
-- **8 h soak** — started alongside this document; results land in `docs/benchmarks/soak_8h.md` when it completes
-  (about 8 hours after start; check `C:/Users/mianx/ppe-work/soak/soak_8h.log` for progress).
+- **8 h soak** — completed after this document was written: clean run ([soak_8h.md](soak_8h.md), 2874 samples,
+  0 errors: 50.2/50 FPS mean, 10/10 cameras online throughout, 0 worker restarts / 0 reconnects, worker RSS drift
+  +0.9 MB/h, VRAM -18.7 MB/h, worst per-camera uptime 0.9998; teacher disabled during the run).

@@ -1,0 +1,151 @@
+{
+  "clip": "C:\\Users\\mianx\\ppe-work\\streams\\cam06.mp4",
+  "clip_note": "Pexels stock clip (metal workshop, workers in caps) - not site footage",
+  "split_by": "identity_track",
+  "n_crops_distinct": 55,
+  "n_identities": 6,
+  "teacher": {
+    "model": "gemini-decision-1",
+    "question": "noul (same as the app)",
+    "mean_p_no_helmet": 0.7927,
+    "refused_or_blocked": 0,
+    "labels_margin_0.2": {
+      "helmet": 0,
+      "no_helmet": 41
+    },
+    "skipped_unconfident": 14
+  },
+  "split": {
+    "train_identities": [
+      0,
+      2,
+      3,
+      4,
+      5
+    ],
+    "holdout_identities": [
+      1
+    ],
+    "train_crops": 41,
+    "holdout_crops": 14,
+    "holdout_crops_with_teacher_label": 14,
+    "holdout_teacher_labels": {
+      "helmet": 0,
+      "no_helmet": 14
+    }
+  },
+  "control_weights": {
+    "reused_from_distill_study": true,
+    "sha256_12": "cf602766f972"
+  },
+  "cc0_hash_holdout": {
+    "shipped": {
+      "threshold_at_2pct_far": 0.0176,
+      "n": 64,
+      "n_violations": 39,
+      "accuracy": 0.7969,
+      "auroc": 0.9282,
+      "missed_violations_at_0.5": 10,
+      "false_alarms_at_0.5": 3,
+      "miss_rate_at_fa_threshold": 0.1026,
+      "false_alarm_rate_at_fa_threshold": 0.24,
+      "ece_10bin": 0.1534
+    },
+    "control": {
+      "threshold_at_2pct_far": 0.0021,
+      "n": 64,
+      "n_violations": 39,
+      "accuracy": 0.875,
+      "auroc": 0.9405,
+      "missed_violations_at_0.5": 6,
+      "false_alarms_at_0.5": 2,
+      "miss_rate_at_fa_threshold": 0.0769,
+      "false_alarm_rate_at_fa_threshold": 0.24,
+      "ece_10bin": 0.1296
+    },
+    "distilled": {
+      "threshold_at_2pct_far": 0.0,
+      "n": 64,
+      "n_violations": 39,
+      "accuracy": 0.875,
+      "auroc": 0.9651,
+      "missed_violations_at_0.5": 6,
+      "false_alarms_at_0.5": 2,
+      "miss_rate_at_fa_threshold": 0.0,
+      "false_alarm_rate_at_fa_threshold": 0.4,
+      "ece_10bin": 0.1178
+    }
+  },
+  "caps_holdout": {
+    "note": "held-out worker identities, never trained on",
+    "shipped": {
+      "n": 14,
+      "mean_p_no_helmet": 0.044,
+      "share_no_helmet_at_0.5": 0.0,
+      "per_identity": {
+        "1": {
+          "mean_p": 0.044,
+          "share_no_helmet_at_0.5": 0.0
+        }
+      }
+    },
+    "control": {
+      "n": 14,
+      "mean_p_no_helmet": 0.0196,
+      "share_no_helmet_at_0.5": 0.0,
+      "per_identity": {
+        "1": {
+          "mean_p": 0.0196,
+          "share_no_helmet_at_0.5": 0.0
+        }
+      }
+    },
+    "distilled": {
+      "n": 14,
+      "mean_p_no_helmet": 0.2932,
+      "share_no_helmet_at_0.5": 0.2857,
+      "per_identity": {
+        "1": {
+          "mean_p": 0.2932,
+          "share_no_helmet_at_0.5": 0.2857
+        }
+      }
+    },
+    "teacher_confident_subset": {
+      "note": "holdout crops the teacher labels confidently (the cap crops) - the fix metric",
+      "shipped": {
+        "n": 14,
+        "mean_p_no_helmet": 0.044,
+        "share_no_helmet_at_0.5": 0.0,
+        "per_identity": {
+          "1": {
+            "mean_p": 0.044,
+            "share_no_helmet_at_0.5": 0.0
+          }
+        }
+      },
+      "control": {
+        "n": 14,
+        "mean_p_no_helmet": 0.0196,
+        "share_no_helmet_at_0.5": 0.0,
+        "per_identity": {
+          "1": {
+            "mean_p": 0.0196,
+            "share_no_helmet_at_0.5": 0.0
+          }
+        }
+      },
+      "distilled": {
+        "n": 14,
+        "mean_p_no_helmet": 0.2932,
+        "share_no_helmet_at_0.5": 0.2857,
+        "per_identity": {
+          "1": {
+            "mean_p": 0.2932,
+            "share_no_helmet_at_0.5": 0.2857
+          }
+        }
+      }
+    }
+  }
+}

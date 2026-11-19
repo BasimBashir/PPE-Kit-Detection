@@ -193,7 +193,7 @@ make down         # docker compose down
 | Event → dashboard latency | p50 24 ms, p95 52 ms, max 240 ms (195 events) | `docs/benchmarks/ui_latency.md` |
 | Time to confirm | ≥ 2.2 s by policy at 5 FPS; observed 2.1–3.6 s | `docs/benchmarks/README.md` |
 | Fault recovery | 13/13 scenarios recovered (e.g. unplug 0.6 s / 7.8 s, worker crash 0.6 s / 14.7 s, DB outage 0 lost) | `docs/benchmarks/fault_injection.md` |
-| 1 h soak | see `docs/benchmarks/soak_1h.md` | `docs/benchmarks/soak_1h.md` |
+| 8 h soak | 50.2 / 50 FPS, 10/10 cameras online, 0 restarts / 0 reconnects, worker RSS +0.9 MB/h | `docs/benchmarks/soak_8h.md` |
 | Teacher review (Gemini, live) | fused AUROC 0.972 vs 0.966 classifier-alone; 20/26 of our missed violations escalated; **0 alerts suppressed**; p95 7.9 s (async) | `docs/ml/teacher_eval.md` |
 | Last-layer fusion | logistic beats Laya on every metric (AUROC 0.9968 vs 0.9928); misses 4.7 % → 3.2 % at ≤ 2 % FAR | `docs/ml/fusion_eval.md` |
 | Distillation flywheel | runs end to end (export → retrain → holdout eval); no measured gain at 22–230 public labels — controls overlap | `docs/ml/distill_eval.md` |

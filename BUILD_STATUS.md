@@ -52,7 +52,7 @@ Licence: AGPL-3.0-or-later (user decision). Interview mapping: [docs/product/int
 | Event → dashboard (NFR-PERF-005) | p50 24 ms, p95 52 ms, max 240 ms over 195 events | ui_latency.md |
 | Time to confirm | ≥ 2.2 s by policy at 5 FPS; observed 2.1-3.6 s | events, ADR-006 |
 | Fault recovery | 13/13 scenarios recovered; e.g. unplug 0.6 s / 7.8 s, worker crash 0.6 s / 14.7 s, DB outage 0 lost | fault_injection.md |
-| 1 h soak | see soak_1h.md | soak_1h.md |
+| 8 h soak | 50.2 / 50 FPS, 10/10 online, 0 restarts / 0 reconnects, worker RSS +0.9 MB/h | soak_8h.md |
 | Last-layer fusion (test, n=2,337) | logistic AUROC 0.9968 beats Laya 0.9928; misses 4.7 % → 3.2 % at ≤2 % FAR | docs/ml/fusion_eval.md |
 | Teacher review (live, 351 public crops) | fused AUROC 0.972; 20/26 missed violations escalated; 0 suppressed; p95 7.9 s | docs/ml/teacher_eval.md |
 | Distillation (22/230 teacher labels, 3 seeds) | no measured gain vs control at this label volume | docs/ml/distill_eval.md |
@@ -75,7 +75,6 @@ Licence: AGPL-3.0-or-later (user decision). Interview mapping: [docs/product/int
 
 ## Next exact tasks
 1. Record the Phase 2 video for the whole ALTAVE team (6-8 min, TTS + silent captioned; business-first).
-2. 8 h soak running since 2026-11-18; results land in docs/benchmarks/soak_8h.md when complete.
-3. Re-tune teacher w/thresholds on reviewed site data before enabling; accumulate operator-confirmed labels and re-run the distillation study at real volume.
-4. Wire TensorRT engines into the pipeline (export path measured; the person-pose stage is the half that could lift the saturation ceiling); on-device edge benchmark.
+2. Re-tune teacher w/thresholds on reviewed site data before enabling; accumulate operator-confirmed labels and re-run the distillation study at real volume.
+3. Wire TensorRT engines into the pipeline (export path measured; the person-pose stage is the half that could lift the saturation ceiling); on-device edge benchmark.
 5. Playwright E2E suite; live UDP source exercise.
