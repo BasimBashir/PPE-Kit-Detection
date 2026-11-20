@@ -92,7 +92,8 @@ claim is made, and why "5,000 images ⇒ 80 % recall" cannot be assumed.
 
 ## 7. What is not measured
 Event-level recall and false alarms per camera-hour on labelled footage; edge devices; real RTSP-over-UDP sources
-(multi-resolution is now measured: 4K profiles in phase3-4k.md) (transport=udp is code-verified and documented, not exercised against a
-live UDP camera). Followed up in [phase2-performance.md](phase2-performance.md): TensorRT FP16 latency, NVDEC
+(transport=udp is code-verified and documented, not exercised against a live UDP camera). Multi-resolution is now
+measured (720p baseline + 4K profiles in [phase3-4k.md](phase3-4k.md)). Followed up in
+[phase2-performance.md](phase2-performance.md): TensorRT FP16 latency, NVDEC
 feasibility probe, CPU-only inference profile, tracking placement, and a clean 8 h soak ([soak_8h.md](soak_8h.md):
 50.2/50 FPS, 10/10 online, 0 restarts / 0 reconnects, worker RSS +0.9 MB/h).
