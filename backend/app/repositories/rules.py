@@ -7,7 +7,7 @@ import yaml
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.config.settings import PPE_ITEMS, RuleSeed, ZoneSeed
+from app.config.settings import RuleSeed, ZoneSeed, check_meta
 from app.models import PPERule, Setting, Zone
 
 
@@ -80,7 +80,7 @@ def apply_preset(s: Session, name: str, camera_id: str | None, zone_id: str | No
         mandatory = mode == "mandatory"
         old = get_rule(s, rid)
         seed = rule_to_seed(old) if old else RuleSeed(
-            id=rid, name=f"{PPE_ITEMS[item].label} ({name})", ppe_class=item, camera_id=camera_id, zone_id=zone_id)
+            id=rid, name=f"{check_meta(item).label} ({name})", ppe_class=item, camera_id=camera_id, zone_id=zone_id)
         seed = seed.model_copy(update={"mandatory": mandatory, "enabled": True,
                                        "severity": "high" if mandatory else "low"})
         out.append(upsert_rule(s, seed))

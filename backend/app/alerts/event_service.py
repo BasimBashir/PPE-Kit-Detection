@@ -24,7 +24,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import DBAPIError, OperationalError
 
 from app.alerts.spool import EventSpool
-from app.config.settings import AlertsConfig
+from app.config.settings import BEHAVIOURS, AlertsConfig
 from app.db.base import SessionFactory, session_scope
 from app.evidence.annotate import annotate_violation
 from app.evidence.store import EvidenceStore
@@ -295,7 +295,8 @@ class EventService(threading.Thread):
         event_id = uuid.uuid4()
         episode_id = f"{self.run_id}:{v.camera_id}:{v.track_id}:{v.episode_seq}"
         roi = v.item_roi or v.head_roi
-        alert = ITEMS[v.ppe_class].alert if v.ppe_class in ITEMS else v.ppe_class
+        meta = ITEMS.get(v.ppe_class) or BEHAVIOURS.get(v.ppe_class)
+        alert = meta.alert if meta else v.ppe_class
         label = f"{alert}  {v.camera_id}  track {v.track_id}"
         img = annotate_violation(v.image, v.person_box, roi, label)
         rel, err = self.evidence.save(event_id, img, v.frame_captured_at)  # before DB so spooled events keep it
@@ -329,7 +330,7 @@ class EventService(threading.Thread):
             m.ppe_event_confirmation_latency_seconds.observe(max(0.0, persisted - v.frame_captured_at))
             self.notify({"type": "event", "action": "created", "event_id": str(event_id),
                          "camera_id": v.camera_id, "persisted_at": persisted})
-            if self.teacher_enabled and roi is not None:
+            if self.teacher_enabled and roi is not None and v.ppe_class in ITEMS:  # teacher reviews PPE crops only
                 self._teacher_candidate(("violation", event_id, v.camera_id, v.track_id, v.rule_id, v.zone_id,
                                          v.severity, v.person_box, Associator._crop(v.image, roi),
                                          v.mean_confidence, v.frame_captured_at, v.ppe_class))

@@ -8,7 +8,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.camera.uri import validate_credential_ref, validate_stream_uri
-from app.config.settings import PPE_ITEMS, RuleThresholds, TemporalPolicy
+from app.config.settings import BEHAVIOURS, PPE_ITEMS, RuleThresholds, Schedule, TemporalPolicy
 
 
 class Strict(BaseModel):
@@ -83,6 +83,7 @@ class RulePatch(Strict):
     mandatory: bool | None = None
     thresholds: RuleThresholds | None = None
     temporal_policy: TemporalPolicy | None = None
+    schedule: Schedule | None = None  # explicit null clears it (exclude_unset in the route)
 
 
 PRESET_NAME = re.compile(r"[a-z0-9][a-z0-9_-]{0,23}")
@@ -96,9 +97,10 @@ class PresetIn(Strict):
     @field_validator("items")
     @classmethod
     def _known(cls, v: dict[str, str]) -> dict[str, str]:
-        unknown = set(v) - set(PPE_ITEMS)
+        known = set(PPE_ITEMS) | set(BEHAVIOURS)
+        unknown = set(v) - known
         if unknown or not v:
-            raise ValueError(f"items must be non-empty and from {sorted(PPE_ITEMS)}; unknown: {sorted(unknown)}")
+            raise ValueError(f"items must be non-empty and from {sorted(known)}; unknown: {sorted(unknown)}")
         return v
 
 

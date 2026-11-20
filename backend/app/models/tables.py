@@ -99,6 +99,7 @@ class PPERule(Base):
     mandatory: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())  # False = secondary
     thresholds: Mapped[dict[str, Any]] = mapped_column(JSONB)
     temporal_policy: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    schedule: Mapped[dict[str, Any] | None] = mapped_column(JSONB)  # Phase 4 shift schedule; NULL = always
     updated_at: Mapped[datetime] = mapped_column(TS, default=utcnow, onupdate=utcnow)
 
 
