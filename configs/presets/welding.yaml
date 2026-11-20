@@ -1,0 +1,9 @@
+# Site preset: welding / fabrication bay (Phase 3, ADR-014). See construction.yaml for how presets are used.
+# Gloves and goggles are small on wide shots: use close-angle cameras for these zones (docs/ml/phase3-log.md).
+rules:
+  - {id: goggles-required, name: Goggles required, ppe_class: goggles, mandatory: true, severity: high}
+  - {id: gloves-required, name: Gloves required, ppe_class: gloves, mandatory: true, severity: high}
+  - {id: shoes-required, name: Safety shoes required, ppe_class: safety_shoes, mandatory: true, severity: medium}
+  - {id: hardhat-advised, name: Hard hat (secondary), ppe_class: hard_hat, mandatory: false, severity: low}
+  - {id: vest-advised, name: Safety vest (secondary), ppe_class: safety_vest, mandatory: false, severity: low}
+zones: []

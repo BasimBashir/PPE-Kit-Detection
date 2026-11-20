@@ -96,7 +96,7 @@ class TeacherReviewer:
             m.ppe_teacher_failures_total.labels("crop_missing").inc()
             return None
         try:
-            v = await asyncio.wait_for(self.teacher.review(crop), self.cfg.timeout_s)
+            v = await asyncio.wait_for(self.teacher.review(crop, cand.get("ppe_class", "hard_hat")), self.cfg.timeout_s)
         except Exception as e:  # noqa: BLE001 - teacher outages are expected and harmless
             reason = "timeout" if isinstance(e, TimeoutError) else "error"
             self.breaker.failure()
@@ -107,7 +107,7 @@ class TeacherReviewer:
             return None
         self.breaker.success()
         m.ppe_teacher_latency_seconds.observe(v.latency_ms / 1000)
-        fused = fuse(v.p_no_helmet, float(cand["p_model"]), self.cfg.weight)
+        fused = fuse(v.p_missing, float(cand["p_model"]), self.cfg.weight)
         verdict = decide(cand["kind"], fused, self.cfg.escalate_threshold, self.cfg.false_alert_threshold)
         row = await asyncio.to_thread(self._persist, cand, v, fused, verdict)
         m.ppe_teacher_reviews_total.labels(verdict).inc()
@@ -126,7 +126,7 @@ class TeacherReviewer:
             track_id=int(cand["track_id"]),
             crop_path=cand["crop_path"],
             p_model=float(cand["p_model"]),
-            p_teacher=v.p_no_helmet,
+            p_teacher=v.p_missing,
             fused=round(fused, 4),
             verdict=verdict,
             provider=v.provider,
@@ -163,7 +163,7 @@ class TeacherReviewer:
                 "roi_source": "teacher_review",
                 "classifier_used": False,
                 "p_model": cand["p_model"],
-                "p_teacher": round(v.p_no_helmet, 4),
+                "p_teacher": round(v.p_missing, 4),
             },
             "first_seen_at": when,
             "confirmed_at": datetime.now(UTC),

@@ -116,7 +116,7 @@ async def test_gemini_request_and_response():
     assert body["model"] == "gemini-decision-1"
     assert body["input"] == [{"type": "image", "data": base64.b64encode(JPEG).decode(), "mime_type": "image/jpeg"}]
     assert body["questions"][QUESTION_ID]["type"] == "noul"
-    assert v.p_no_helmet == 0.87 and v.provider == "gemini" and v.raw["usage"]["total_tokens"] == 9
+    assert v.p_missing == 0.87 and v.provider == "gemini" and v.raw["usage"]["total_tokens"] == 9
 
 
 async def test_gemini_errors_raise():
@@ -145,7 +145,7 @@ async def test_systemone_request_and_response():
     assert body["questions"] == {
         QUESTION_ID: {"type": "noul", "instructions": body["questions"][QUESTION_ID]["instructions"]}
     }
-    assert v.p_no_helmet == 0.12 and v.provider == "systemone"
+    assert v.p_missing == 0.12 and v.provider == "systemone"
 
 
 def test_config_defaults_disabled():

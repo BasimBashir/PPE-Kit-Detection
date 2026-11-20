@@ -25,7 +25,8 @@ ingest:
   backoff_base_s: 1
   backoff_max_s: 10
   stable_reset_s: 10
-  hwaccel: none
+  hwaccel: none       # cuda = NVDEC hardware decode (falls back to software); frees the CPU for 4K streams
+                      # (~10 4K@25fps streams per RTX 3090; docs/benchmarks/phase3-4k.md)
 
 tracking:
   tracker: bytetrack

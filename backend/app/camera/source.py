@@ -16,6 +16,7 @@ from urllib.parse import unquote, urlsplit
 
 import av
 import av.error
+from av.codec.hwaccel import HWAccel
 
 from app.camera.health import Backoff, CameraHealth, CameraState
 from app.camera.uri import CredentialError, resolve_uri
@@ -126,11 +127,14 @@ class CameraSource(threading.Thread):
         log.info("camera %s source stopped", self.cam.id)
 
     def _open(self):  # -> av.container.InputContainer
+        # NVDEC frees the CPU for 4K streams (docs/benchmarks/phase3-4k.md); falls back to software if unavailable
+        hw = ({"hwaccel": HWAccel(device_type="cuda", allow_software_fallback=True)}
+              if self.cfg.hwaccel == "cuda" else {})
         if self.is_file:
             path = file_path_of(self.cam.stream_uri)
             if not path.exists():
                 raise FileNotFoundError(f"video file not found: {path.name}")
-            return av.open(str(path))
+            return av.open(str(path), **hw)
         try:
             url = resolve_uri(self.cam.stream_uri, self.cam.credential_ref)
         except CredentialError:
@@ -138,7 +142,7 @@ class CameraSource(threading.Thread):
         except ValueError as e:
             raise StreamConfigError(str(e)) from e
         return av.open(url, options={"rtsp_transport": self.cam.transport},
-                       timeout=(self.cfg.open_timeout_s, self.cfg.read_timeout_s))
+                       timeout=(self.cfg.open_timeout_s, self.cfg.read_timeout_s), **hw)
 
     def _read(self, container, backoff: Backoff) -> None:
         stream = container.streams.video[0]

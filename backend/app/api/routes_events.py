@@ -9,12 +9,12 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.api.deps import ApiError, AppContext, ctx, db, require
-from app.config.settings import RuleSeed
+from app.config.settings import PPE_ITEMS, RuleSeed
 from app.models import Camera, User
 from app.repositories import events as ev_repo
 from app.repositories import rules as rules_repo
 from app.repositories.misc import audit
-from app.schemas.requests import FeedbackIn, NoteIn, RulePatch
+from app.schemas.requests import PRESET_NAME, FeedbackIn, NoteIn, PresetApply, PresetIn, RulePatch
 from app.schemas.serializers import action_out, event_out, rule_out, teacher_review_out
 
 router = APIRouter(prefix="/api/v1", tags=["events", "rules"])
@@ -137,6 +137,54 @@ def upsert_rule(body: RuleSeed, c: AppContext = Depends(ctx), s: Session = Depen
     s.commit()
     c.send_worker({"type": "reload_rules"})
     return rule_out(r, _target_fps(c))
+
+
+@router.get("/ppe-items")
+def ppe_items(_u: User = Depends(require("viewer"))):
+    """The enforceable item catalogue (models.yaml ppe_items): what rules and presets can choose from."""
+    return [{"id": k, "label": v.label, "region": v.region} for k, v in PPE_ITEMS.items()]
+
+
+@router.get("/presets")
+def list_presets(s: Session = Depends(db), _u: User = Depends(require("viewer"))):
+    return [{"name": n, "items": items} for n, items in sorted(rules_repo.get_presets(s).items())]
+
+
+@router.put("/presets/{name}")
+def put_preset(name: str, body: PresetIn, s: Session = Depends(db), u: User = Depends(require("admin"))):
+    if not PRESET_NAME.fullmatch(name):
+        raise ApiError(422, "invalid_name", "preset name: lowercase letters, digits, - or _ (max 24)")
+    rules_repo.put_preset(s, name, body.items)
+    audit(s, u.username, "preset_upsert", f"preset:{name}", {"items": body.items})
+    s.commit()
+    return {"name": name, "items": body.items}
+
+
+@router.delete("/presets/{name}", status_code=204)
+def delete_preset(name: str, s: Session = Depends(db), u: User = Depends(require("admin"))):
+    if not rules_repo.delete_preset(s, name):
+        raise ApiError(404, "not_found", "preset not found")
+    audit(s, u.username, "preset_delete", f"preset:{name}", {})
+    s.commit()
+
+
+@router.post("/presets/{name}/apply")
+def apply_preset(name: str, body: PresetApply, c: AppContext = Depends(ctx), s: Session = Depends(db),
+                 u: User = Depends(require("admin"))):
+    """Create/update one rule per preset item for the scope (all cameras, one camera, or one zone)."""
+    if name not in rules_repo.get_presets(s):
+        raise ApiError(404, "not_found", "preset not found")
+    if body.camera_id and s.get(Camera, body.camera_id) is None:
+        raise ApiError(404, "not_found", "camera not found")
+    if body.zone_id:
+        z = rules_repo.get_zone(s, body.zone_id)
+        if z is None or (body.camera_id and z.camera_id != body.camera_id):
+            raise ApiError(404, "not_found", "zone not found on this camera")
+    rules = rules_repo.apply_preset(s, name, body.camera_id, body.zone_id)
+    audit(s, u.username, "preset_apply", f"preset:{name}", body.model_dump())
+    s.commit()
+    c.send_worker({"type": "reload_rules"})
+    return [rule_out(r, _target_fps(c)) for r in rules]
 
 
 @router.patch("/rules/{rule_id}")

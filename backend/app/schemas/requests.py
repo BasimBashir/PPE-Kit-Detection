@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import re
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.camera.uri import validate_credential_ref, validate_stream_uri
-from app.config.settings import RuleThresholds, TemporalPolicy
+from app.config.settings import PPE_ITEMS, RuleThresholds, TemporalPolicy
 
 
 class Strict(BaseModel):
@@ -79,8 +80,31 @@ class RulePatch(Strict):
     zone_id: str | None = None
     severity: Literal["low", "medium", "high"] | None = None
     enabled: bool | None = None
+    mandatory: bool | None = None
     thresholds: RuleThresholds | None = None
     temporal_policy: TemporalPolicy | None = None
+
+
+PRESET_NAME = re.compile(r"[a-z0-9][a-z0-9_-]{0,23}")
+
+
+class PresetIn(Strict):
+    """Operator preset: item -> "mandatory" | "secondary" (items left out are off). Phase 3, ADR-014."""
+
+    items: dict[str, Literal["mandatory", "secondary"]]
+
+    @field_validator("items")
+    @classmethod
+    def _known(cls, v: dict[str, str]) -> dict[str, str]:
+        unknown = set(v) - set(PPE_ITEMS)
+        if unknown or not v:
+            raise ValueError(f"items must be non-empty and from {sorted(PPE_ITEMS)}; unknown: {sorted(unknown)}")
+        return v
+
+
+class PresetApply(Strict):
+    camera_id: str | None = None  # None = all cameras
+    zone_id: str | None = None  # None = full frame
 
 
 class NoteIn(Strict):

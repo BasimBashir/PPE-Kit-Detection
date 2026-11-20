@@ -223,7 +223,7 @@ the window but never vote. Transitions:
 | cameras | id text, name, stream_uri, credential_ref, transport, enabled, site, location, target_fps, created_at, updated_at |
 | camera_health | id bigserial, camera_id fk*, state, reason, recorded_at* (state change history only) |
 | zones | id text, camera_id fk*, name, kind (monitor/ignore/privacy), polygon jsonb, enabled |
-| ppe_rules | id text, name, ppe_class, camera_id null, zone_id null, severity, enabled, thresholds jsonb, temporal_policy jsonb, updated_at |
+| ppe_rules | id text, name, ppe_class (item key of models.yaml ppe_items), camera_id null, zone_id null, severity, enabled, mandatory (false = secondary: recorded, no alert), thresholds jsonb, temporal_policy jsonb, updated_at |
 | model_versions | id text (name@hash), model_name, version, artifact_hash, license, config jsonb, first_seen_at |
 | events | id uuid, idempotency_key unique, camera_id fk*, track_id, zone_id, rule_id fk, episode_id, status* (OPEN/ACKNOWLEDGED/RESOLVED), severity, reason, confidence_summary jsonb, first_seen_at, confirmed_at*, frame_captured_at, persisted_at, last_seen_at, episode_ended_at, reconfirm_count, last_box jsonb, evidence_path, evidence_error, model_versions jsonb, feedback (TRUE_POSITIVE/FALSE_POSITIVE/null), feedback_note, acknowledged_by, acknowledged_at, resolved_by, resolved_at, dashboard_rendered_at, created_at, updated_at |
 | alert_outbox | id bigserial, event_id fk, channel, status* (PENDING/DELIVERED/FAILED), attempts, next_attempt_at*, last_error, created_at, delivered_at; unique(event_id, channel) |

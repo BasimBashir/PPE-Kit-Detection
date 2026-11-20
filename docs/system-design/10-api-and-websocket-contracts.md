@@ -91,9 +91,10 @@ Camera = { id; name; stream_uri; credential_ref: string|null; has_credentials: b
 CameraCreate = { id; name; stream_uri; credential_ref?; transport?; enabled?; site?; location?; target_fps? }
 CameraUpdate = Partial<Omit<CameraCreate,"id">>
 Zone = { id; camera_id; name; kind: "monitor"|"ignore"|"privacy"; polygon: [number,number][]; enabled: boolean }
-Rule = { id; name; ppe_class: "hard_hat"; camera_id: string|null; zone_id: string|null;
-  severity: "low"|"medium"|"high"; enabled: boolean;
-  thresholds: { person_conf; helmet_conf; head_conf; min_person_height_px; min_head_px };
+Rule = { id; name; ppe_class: "hard_hat"|"safety_vest"|"gloves"|"goggles"|"safety_shoes"; camera_id: string|null;
+  zone_id: string|null; severity: "low"|"medium"|"high"; enabled: boolean;
+  mandatory: boolean;  // Phase 3 (ADR-014): false = secondary -> event recorded, no outbox/live alert
+  thresholds: { person_conf; present_conf; absent_conf; min_person_height_px; min_roi_px };  // Phase 1 names accepted on input
   temporal_policy: { mode: "count"|"duration"|"both"; confirm_n; confirm_m; min_duration_s; suspect_n;
     compliant_n; compliant_m; clear_n; clear_m; unknown_ratio; window };
   effective_confirm_seconds: number;   // confirm_n / target_fps - spec 5.1 transparency
@@ -127,8 +128,9 @@ MetricsSummary = {
 SystemInfo = { version; mode; models: Record<string,string>; device: string|null; started_at; config: {
   target_fps; max_batch; head_roi: string; classifier_enabled: boolean } }
 Settings = { evidence_retention_days: number; evidence_min_free_bytes: number }
-OverlayTrack = { track_id; box: [x1,y1,x2,y2]; ppe_state; outcome; head_roi; helmet_box; head_box }  // preview pixel space
-OverlayDet = { cls: "person"|"helmet"|"head"; conf; box }
+OverlayTrack = { track_id; box: [x1,y1,x2,y2]; ppe_state; outcome: "PRESENT"|"ABSENT"|"UNCERTAIN"; ppe_class;
+  item_roi; present_box; absent_box }  // preview pixel space; a confirmed violation's item wins per track
+OverlayDet = { cls: "person"|"helmet"|"head"|"vest"|"no_vest"|"gloves"|"no_gloves"|"goggles"|"no_goggles"|"boots"|"no_boots"; conf; box }
 ```
 
 ## WebSocket `/ws/live`

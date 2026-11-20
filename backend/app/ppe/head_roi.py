@@ -66,3 +66,52 @@ def head_roi(person: TrackedPerson, cfg: AssociationConfig, frame_w: float, fram
         box[1] + cfg.roi_top_frac * h,
     )
     return clip(roi, frame_w, frame_h), "geometry"
+
+
+# ---------------------------------------------------------------- Phase 3: other body regions
+
+KP_LELBOW, KP_RELBOW, KP_LWRIST, KP_RWRIST, KP_LHIP, KP_RHIP, KP_LANKLE, KP_RANKLE = 7, 8, 9, 10, 11, 12, 15, 16
+
+
+def _pt(person: TrackedPerson, i: int, min_conf: float) -> tuple[float, float] | None:
+    x, y, c = _keypoint(person, i)
+    return (x, y) if c >= min_conf and x >= 0 else None
+
+
+def _square(cx: float, cy: float, side: float, w: float, h: float) -> Box:
+    return clip((cx - side / 2, cy - side / 2, cx + side / 2, cy + side / 2), w, h)
+
+
+def region_rois(region: str, person: TrackedPerson, cfg: AssociationConfig, frame_w: float,
+                frame_h: float) -> list[tuple[Box, str]]:
+    """ROIs where an item must be: head/eyes (helmet, goggles), torso (vest), one per hand (gloves), one per foot
+    (shoes). Keypoints first, person-box geometry as fallback; hands have no geometric fallback (they move too much),
+    so without wrist keypoints a glove rule is UNCERTAIN, never a violation."""
+    if region in ("head", "eyes"):
+        return [head_roi(person, cfg, frame_w, frame_h)]
+    box, mc = person.box, cfg.keypoint_min_conf
+    bw, bh = box[2] - box[0], box[3] - box[1]
+    if region == "torso":
+        pts = [p for p in (_pt(person, i, mc) for i in (KP_LSHOULDER, KP_RSHOULDER, KP_LHIP, KP_RHIP)) if p]
+        if len(pts) >= 3:
+            xs, ys = zip(*pts, strict=False)
+            px = 0.2 * max(max(xs) - min(xs), 0.15 * bh)
+            return [(clip((min(xs) - px, min(ys) - 0.04 * bh, max(xs) + px, max(ys) + 0.06 * bh), frame_w, frame_h),
+                     "keypoints")]
+        return [(clip((box[0] + 0.1 * bw, box[1] + 0.18 * bh, box[2] - 0.1 * bw, box[1] + 0.6 * bh), frame_w, frame_h),
+                 "geometry")]
+    if region == "hands":
+        out = []
+        for wi, ei in ((KP_LWRIST, KP_LELBOW), (KP_RWRIST, KP_RELBOW)):
+            w = _pt(person, wi, mc)
+            if w is None:
+                continue
+            e = _pt(person, ei, mc)
+            cx, cy = (w[0] + 0.35 * (w[0] - e[0]), w[1] + 0.35 * (w[1] - e[1])) if e else w  # hand is past the wrist
+            out.append((_square(cx, cy, 0.13 * bh, frame_w, frame_h), "keypoints"))
+        return out
+    if region == "feet":
+        out = [(_square(a[0], a[1] + 0.03 * bh, 0.15 * bh, frame_w, frame_h), "keypoints")
+               for a in (_pt(person, i, mc) for i in (KP_LANKLE, KP_RANKLE)) if a]
+        return out or [(clip((box[0], box[3] - 0.15 * bh, box[2], box[3] + 0.02 * bh), frame_w, frame_h), "geometry")]
+    raise ValueError(f"unknown region {region!r}")

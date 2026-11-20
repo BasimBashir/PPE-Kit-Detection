@@ -3,7 +3,11 @@
 **Status:** VERIFIED (unit-tested; field accuracy not established) · **Related ADRs:** ADR-004, ADR-005 · **Modules:** `tracking/tracker.py`, `ppe/head_roi.py`, `ppe/association.py`, `ppe/zones.py`
 
 ## Purpose and scope
-Per-camera identities and the helmet-is-on-this-head decision (FR-DET-003/004/007, FR-TRK-001/002).
+Per-camera identities and the item-is-on-this-region decision (FR-DET-003/004/007, FR-TRK-001/002).
+Phase 3 (ADR-014): the same matcher runs once per rule for five items - helmet/head on the head ROI, goggles on
+eyes, vest on the torso ROI, gloves on each wrist ROI, shoes on each ankle ROI - item = PRESENT evidence,
+`no_*` bare region = ABSENT; any bare hand/foot is ABSENT; regions without keypoints stay UNCERTAIN. The item
+catalogue (classes, regions, size gates) is `models.yaml ppe_items`, not code.
 
 ## Assumptions
 - Static cameras; no cross-camera Re-ID (not required).

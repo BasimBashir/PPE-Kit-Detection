@@ -82,22 +82,22 @@ def assess(persons, dets, cfg=GEO, th=TH, classifier=None):
 
 def test_helmet_on_head():
     (o,) = assess([person(1, P1)], [det("helmet", (430, 85, 490, 125))])
-    assert o.outcome is Outcome.HELMET and o.reason == "helmet_on_head_roi"
+    assert o.outcome is Outcome.PRESENT and o.reason == "present_on_roi"
 
 
 def test_bare_head():
     (o,) = assess([person(1, P1)], [det("head", (435, 95, 485, 150))])
-    assert o.outcome is Outcome.NO_HELMET
+    assert o.outcome is Outcome.ABSENT
 
 
 def test_helmet_on_ground_not_credited():
     (o,) = assess([person(1, P1)], [det("helmet", (530, 470, 580, 500)), det("head", (435, 95, 485, 150))])
-    assert o.outcome is Outcome.NO_HELMET and o.helmet_box is None
+    assert o.outcome is Outcome.ABSENT and o.present_box is None
 
 
 def test_helmet_in_hand_at_chest_not_credited():
     (o,) = assess([person(1, P1)], [det("helmet", (440, 260, 495, 300))])
-    assert o.outcome is Outcome.UNCERTAIN and o.helmet_box is None
+    assert o.outcome is Outcome.UNCERTAIN and o.present_box is None
 
 
 def test_one_helmet_never_credited_to_two_people():
@@ -105,8 +105,8 @@ def test_one_helmet_never_credited_to_two_people():
     # helmet sits on A's head ROI centre; it also overlaps B's ROI partially
     obs = assess([p_a, p_b], [det("helmet", (432, 85, 488, 125)), det("head", (505, 110, 555, 160))])
     by = {o.track_id: o for o in obs}
-    assert by[1].outcome is Outcome.HELMET
-    assert by[2].outcome is Outcome.NO_HELMET and by[2].helmet_box is None
+    assert by[1].outcome is Outcome.PRESENT
+    assert by[2].outcome is Outcome.ABSENT and by[2].present_box is None
 
 
 def test_occluded_or_tiny_or_truncated_is_uncertain():
@@ -116,14 +116,14 @@ def test_occluded_or_tiny_or_truncated_is_uncertain():
     (nothing,) = assess([person(3, P1)], [])
     assert tiny.outcome is Outcome.UNCERTAIN and "person_too_small" in tiny.reason
     assert top.outcome is Outcome.UNCERTAIN and "head_truncated" in top.reason
-    assert nothing.outcome is Outcome.UNCERTAIN and nothing.reason == "no_head_evidence"
+    assert nothing.outcome is Outcome.UNCERTAIN and nothing.reason == "no_region_evidence"
 
 
 def test_threshold_boundaries():
-    th = RuleThresholds(helmet_conf=0.5, head_conf=0.5)
+    th = RuleThresholds(present_conf=0.5, absent_conf=0.5)
     (at,) = assess([person(1, P1)], [det("helmet", (430, 85, 490, 125), conf=0.5)], th=th)
     (below,) = assess([person(1, P1)], [det("helmet", (430, 85, 490, 125), conf=0.4999)], th=th)
-    assert at.outcome is Outcome.HELMET and below.outcome is Outcome.UNCERTAIN
+    assert at.outcome is Outcome.PRESENT and below.outcome is Outcome.UNCERTAIN
     (lowp,) = assess([person(1, P1, conf=0.39)], [det("head", (435, 95, 485, 150))])
     assert lowp.outcome is Outcome.UNCERTAIN and "low_person_conf" in lowp.reason
 
@@ -145,7 +145,7 @@ def test_conflict_goes_to_classifier_only_when_ambiguous():
     clf = FakeClassifier("HELMET_ABSENT")
     both = [det("helmet", (430, 85, 490, 125), 0.6), det("head", (435, 95, 485, 150), 0.62)]
     (o,) = assess([person(1, P1)], both, cfg=cfg, classifier=clf)
-    assert o.outcome is Outcome.NO_HELMET and o.classifier_used and clf.calls == 1
+    assert o.outcome is Outcome.ABSENT and o.classifier_used and clf.calls == 1
     (o2,) = assess([person(1, P1)], [det("helmet", (430, 85, 490, 125))], cfg=cfg, classifier=clf)
     assert not o2.classifier_used and clf.calls == 1  # clear case: classifier not invoked
     (o3,) = assess([person(1, P1)], both, cfg=GEO)
@@ -170,6 +170,21 @@ def test_zones():
     assert not np.array_equal(out[:60, :100], img[:60, :100])
 
 
+def test_zone_polygon_is_resolution_independent():
+    """Zones are stored normalised (0..1), never pixels: the SAME polygon stays correct when a camera's resolution
+    changes (720p today, 4K after an upgrade) - the foot point and the privacy mask are mapped through the live
+    frame size each frame, so nothing needs re-drawing or migrating."""
+    z = [ZoneRuntime("bay", "cam01", "bay", "monitor", [(0.2, 0.5), (0.8, 0.5), (0.8, 1.0), (0.2, 1.0)])]
+    prv = [ZoneRuntime("prv", "cam01", "window", "privacy", [(0.0, 0.0), (0.1, 0.0), (0.1, 0.1), (0.0, 0.1)])]
+    for w, h in ((1280, 720), (1920, 1080), (3840, 2160)):  # SD, FHD, 4K - one polygon for all
+        assert zone_of((0.30 * w, 0.60 * h, 0.50 * w, 0.90 * h), z, w, h) == "bay"  # foot in the polygon
+        assert zone_of((0.02 * w, 0.02 * h, 0.12 * w, 0.30 * h), z, w, h) is None   # foot outside it
+        img = np.random.default_rng(0).integers(0, 255, (h, w, 3), dtype=np.uint8)
+        masked = apply_privacy_masks(img, prv)
+        changed = np.mean(np.any(masked != img, axis=2))
+        assert abs(changed - 0.01) < 0.002  # the mask covers the same fraction of the frame at every resolution
+
+
 # ---------------------------------------------------------------- state machine
 def ob(outcome, tid=1, conf=0.8):
     return Observation(tid, outcome, conf, "t", (0, 0, 10, 10), None)
@@ -183,7 +198,7 @@ def feed(fsm, seq, t0=0.0, dt=0.2, tid=1):
     return trans, t
 
 
-N, Y, U = Outcome.NO_HELMET, Outcome.HELMET, Outcome.UNCERTAIN
+N, Y, U = Outcome.ABSENT, Outcome.PRESENT, Outcome.UNCERTAIN
 POL = TemporalPolicy()  # 12 of 15, suspect 2, compliant 3/5, clear 8/10
 
 
@@ -277,4 +292,4 @@ def test_deferred_classification_matches_direct_path():
     assert len(pending) == 1 and a.take_pending() == []
     apply_classification(pending, [("HELMET_ABSENT", 0.9)])
     (direct,) = Associator(cfg, TH, FakeClassifier("HELMET_ABSENT")).assess([person(1, P1)], both, frame())
-    assert (o.outcome, o.classifier_used) == (direct.outcome, direct.classifier_used) == (Outcome.NO_HELMET, True)
+    assert (o.outcome, o.classifier_used) == (direct.outcome, direct.classifier_used) == (Outcome.ABSENT, True)

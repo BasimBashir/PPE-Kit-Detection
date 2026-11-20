@@ -9,11 +9,11 @@ Box = tuple[float, float, float, float]  # x1, y1, x2, y2 pixels
 
 
 class Outcome(StrEnum):
-    """Per-frame evidence for one tracked person."""
+    """Per-frame evidence for one tracked person and one PPE item (rule)."""
 
-    HELMET = "HELMET"  # helmet verified on the head ROI
-    NO_HELMET = "NO_HELMET"  # head visible, no helmet on it
-    UNCERTAIN = "UNCERTAIN"  # head not assessable (occluded, too small, truncated, conflicting)
+    PRESENT = "PRESENT"  # item verified on its body region (helmet on head, vest on torso, ...)
+    ABSENT = "ABSENT"  # region visible and bare (head, torso, hand, foot, eyes without the item)
+    UNCERTAIN = "UNCERTAIN"  # region not assessable (occluded, too small, truncated, conflicting)
 
 
 class PPEState(StrEnum):
@@ -37,11 +37,12 @@ class Observation:
     track_id: int
     outcome: Outcome
     confidence: float  # confidence of the evidence supporting `outcome` (0..1)
-    reason: str  # short machine-friendly reason, e.g. "helmet_on_head_roi", "head_too_small"
+    reason: str  # short machine-friendly reason, e.g. "present_on_roi", "roi_too_small"
     person_box: Box
-    head_roi: Box | None
-    helmet_box: Box | None = None
-    head_box: Box | None = None
+    head_roi: Box | None  # always the head (dedupe identity cue), whatever the item
+    present_box: Box | None = None  # item detection matched to the region
+    absent_box: Box | None = None  # bare-region detection matched to the region
+    item_roi: Box | None = None  # the region that decided the outcome (head ROI for hard hats); evidence + teacher crop
     roi_source: str = "geometry"  # "keypoints" | "geometry"
     classifier_used: bool = False
     zone_id: str | None = None

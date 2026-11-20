@@ -70,6 +70,8 @@ class RuleRuntime:
     zone_id: str | None
     associator: Associator
     fsm: PPEStateMachine
+    ppe_class: str = "hard_hat"
+    mandatory: bool = True  # False = secondary rule: events recorded, no alert delivery
 
 
 @dataclass
@@ -119,7 +121,8 @@ class PipelineWorker:
         self.watchdog = CameraWatchdog()
         self.sampler = ResourceSampler("worker", {"evidence": self.evidence.root})
         self.stage_ms: dict[str, RollingWindow] = {k: RollingWindow(60.0) for k in
-                                                   ("person", "ppe", "classifier", "tracking", "association", "total")}
+                                                   ("person", "ppe", "items", "classifier", "tracking",
+                                                    "association", "total")}
         self.batch_sizes = RollingWindow(60.0)
         self.stop_evt = threading.Event()
         self.fault: dict[str, Any] = {}
@@ -144,9 +147,18 @@ class PipelineWorker:
 
     # ------------------------------------------------------------ config
     def _load(self) -> tuple[list[Camera], list[RuleSeed], list[ZoneRuntime]]:
+        shard = self.s.shard  # network sharding (ADR-014): "i/N" keeps cameras whose sorted index % N == i
         with session_scope(self.sf) as s:
-            cams = list(s.scalars(select(Camera).order_by(Camera.id)))
-            rules = [rules_repo.rule_to_seed(r) for r in rules_repo.list_rules(s) if r.enabled]
+            cams = [c for i, c in enumerate(s.scalars(select(Camera).order_by(Camera.id)))
+                    if shard is None or i % shard[1] == shard[0]]
+            rules = []
+            for r in rules_repo.list_rules(s):
+                if not r.enabled:
+                    continue
+                try:
+                    rules.append(rules_repo.rule_to_seed(r))
+                except ValueError as e:  # e.g. its PPE item was removed from models.yaml: skip, never crash the worker
+                    log.error("rule %s ignored: %s", r.id, e)
             zones = [ZoneRuntime(z.id, z.camera_id, z.name, z.kind, [tuple(p) for p in z.polygon], z.enabled)
                      for z in rules_repo.list_zones(s)]
         return cams, rules, zones
@@ -160,15 +172,16 @@ class PipelineWorker:
         for r in rules:
             if r.camera_id not in (None, cr.cfg.id):
                 continue
-            if r.id in prev:  # hot reload keeps track states
+            if r.id in prev and prev[r.id].ppe_class == r.ppe_class:  # hot reload keeps track states
                 rr = prev[r.id]
-                rr.severity, rr.zone_id = r.severity, r.zone_id
+                rr.severity, rr.zone_id, rr.mandatory = r.severity, r.zone_id, r.mandatory
                 rr.associator.set_thresholds(r.thresholds)
                 rr.fsm.set_policy(r.temporal_policy)
             else:
                 rr = RuleRuntime(r.id, r.severity, r.zone_id,
-                                 Associator(self.cfg.association, r.thresholds, self.classifier),
-                                 PPEStateMachine(cr.cfg.id, r.temporal_policy, self.cfg.tracking.track_expiry_s))
+                                 Associator(self.cfg.association, r.thresholds, self.classifier, r.ppe_class),
+                                 PPEStateMachine(cr.cfg.id, r.temporal_policy, self.cfg.tracking.track_expiry_s),
+                                 r.ppe_class, r.mandatory)
             out.append(rr)
         cr.rules = out
 
@@ -310,7 +323,7 @@ class PipelineWorker:
         t1 = time.perf_counter()
         self.stage_ms["tracking"].add(1000 * (t1 - t0))
         m.inference_duration_seconds.labels("tracking").observe(t1 - t0)
-        ppe_dets = [d for d in dets if d.cls in ("helmet", "head")]
+        ppe_dets = [d for d in dets if d.cls != "person"]  # each rule's associator keeps only its item's classes
         per_rule, pending = [], []
         for rr in cr.rules:
             scoped = tracked
@@ -336,7 +349,7 @@ class PipelineWorker:
         self.stage_ms["classifier"].add(1000 * (time.perf_counter() - t0) / len(pending))
 
     def _decide(self, cr: CamRuntime, frame: Frame, dets: list, st: dict[str, Any], pcfg) -> None:
-        overlay_state: dict[int, tuple[str, Any]] = {}
+        overlay_state: dict[int, tuple[str, Any, str]] = {}
         masked: np.ndarray | None = None
         for rr, obs in st["per_rule"]:
             for o in obs:
@@ -352,20 +365,20 @@ class PipelineWorker:
                     p = rr.fsm.policy
                     self.events.submit_confirmed(ConfirmedViolation(
                         cr.cfg.id, tr.track_id, rr.zone_id, rr.id, rr.severity, tr.episode_seq, o.person_box,
-                        o.head_roi, tr.reason, t.votes(p.confirm_m, Outcome.NO_HELMET), len(t.decisive(p.confirm_m)),
-                        t.no_helmet_confidence(p.confirm_m), o.roi_source, o.classifier_used, masked,
+                        o.head_roi, tr.reason, t.votes(p.confirm_m, Outcome.ABSENT), len(t.decisive(p.confirm_m)),
+                        t.absent_confidence(p.confirm_m), o.roi_source, o.classifier_used, masked,
                         frame.captured_at, t.first_violation_at or frame.captured_at, tr.ts, self.model_versions,
-                        cr.name))
+                        cr.name, o.item_roi, rr.ppe_class, rr.mandatory))
                 elif tr.prev is S.CONFIRMED_NON_COMPLIANT and tr.new is S.CLEARED:
                     self.events.submit_cleared(cr.cfg.id, tr.track_id, rr.id, tr.ts)
                 elif tr.new is S.COMPLIANT and random.random() < self.teacher_sample_rate:
                     o = rr.fsm.tracks[tr.track_id].last_observation
-                    if o is not None and o.head_roi is not None:
+                    if o is not None and o.item_roi is not None:
                         if masked is None:
                             masked = apply_privacy_masks(frame.image, cr.zones)
-                        self.events.submit_teacher_sample(  # p_model = P(no helmet) = 1 - helmet confidence
+                        self.events.submit_teacher_sample(  # p_model = P(item missing) = 1 - item confidence
                             cr.cfg.id, tr.track_id, rr.id, rr.zone_id, rr.severity, o.person_box,
-                            Associator._crop(masked, o.head_roi), 1.0 - o.confidence, frame.captured_at)
+                            Associator._crop(masked, o.item_roi), 1.0 - o.confidence, frame.captured_at, rr.ppe_class)
             for o in obs:
                 state = rr.fsm.state_of(o.track_id)
                 if state is S.CONFIRMED_NON_COMPLIANT:
@@ -377,19 +390,20 @@ class PipelineWorker:
                             self._still_sent = {kk: t for kk, t in self._still_sent.items() if t >= cut}
                         self.events.submit_still_confirmed(cr.cfg.id, o.track_id, rr.id, o.person_box, o.head_roi)
                 if o.track_id not in overlay_state or state is S.CONFIRMED_NON_COMPLIANT:
-                    overlay_state[o.track_id] = (state.value, o)
+                    overlay_state[o.track_id] = (state.value, o, rr.ppe_class)
         cr.processed.add(1.0)
         m.tracker_active_tracks.labels(cr.cfg.id).set(cr.tracker.active_count)  # type: ignore[union-attr]
         now = time.monotonic()
         if now - cr.last_preview >= 1.0 / pcfg.preview_fps:
             cr.last_preview = now
-            self._send_preview(cr, frame, dets, overlay_state, masked, pcfg)
+            self._send_preview(cr, frame, dets, overlay_state, pcfg)
 
-    def _send_preview(self, cr: CamRuntime, frame: Frame, dets: list, overlay: dict, masked, pcfg) -> None:
-        img = masked if masked is not None else apply_privacy_masks(frame.image, cr.zones)
+    def _send_preview(self, cr: CamRuntime, frame: Frame, dets: list, overlay: dict, pcfg) -> None:
         sx = pcfg.preview_width / frame.width
         h = max(1, round(frame.height * sx))
-        small = cv2.resize(img, (pcfg.preview_width, h), interpolation=cv2.INTER_AREA)
+        # shrink first, then mask (zones are normalised): masking/copying a 4K frame 4x/s per camera was CPU-bound
+        small = apply_privacy_masks(cv2.resize(frame.image, (pcfg.preview_width, h), interpolation=cv2.INTER_AREA),
+                                    cr.zones)
         ok, buf = cv2.imencode(".jpg", small, [cv2.IMWRITE_JPEG_QUALITY, pcfg.preview_jpeg_quality])
         if not ok:
             return
@@ -398,8 +412,9 @@ class PipelineWorker:
             return None if b is None else [round(v, 1) for v in scale(b, sx, sx)]
 
         tracks = [{"track_id": tid, "box": sc(o.person_box), "ppe_state": st, "outcome": o.outcome.value,
-                   "head_roi": sc(o.head_roi), "helmet_box": sc(o.helmet_box), "head_box": sc(o.head_box)}
-                  for tid, (st, o) in overlay.items()]
+                   "ppe_class": item, "item_roi": sc(o.item_roi), "present_box": sc(o.present_box),
+                   "absent_box": sc(o.absent_box)}
+                  for tid, (st, o, item) in overlay.items()]
         det_list = [{"cls": d.cls, "conf": round(d.conf, 3), "box": sc(d.xyxy)} for d in dets]
         self._send({"type": "preview", "camera_id": cr.cfg.id, "frame_id": frame.frame_id,
                     "captured_at": frame.captured_at, "width": pcfg.preview_width, "height": h,

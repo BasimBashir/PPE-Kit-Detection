@@ -45,10 +45,11 @@ class OverlayTrack(TypedDict):
     track_id: int
     box: list[float]  # x1,y1,x2,y2 in preview pixel space
     ppe_state: str
-    outcome: str
-    head_roi: list[float] | None
-    helmet_box: list[float] | None
-    head_box: list[float] | None
+    outcome: str  # PRESENT | ABSENT | UNCERTAIN for ppe_class
+    ppe_class: str  # the item this track's state refers to (a confirmed violation wins over other rules)
+    item_roi: list[float] | None
+    present_box: list[float] | None
+    absent_box: list[float] | None
 
 
 class OverlayDet(TypedDict):

@@ -1,0 +1,89 @@
+{
+  "model": "multippe_B_cppe_m1280",
+  "weights_sha256_12": "a4ae0bdc7e3f",
+  "split": "test",
+  "dataset": "C:/Users/mianx/ppe-work/phase3/ds_cppe/data.yaml",
+  "dataset_license": "CC BY 4.0 (Ultralytics Construction-PPE)",
+  "evaluated_at": "2026-11-20T15:38:23+0500",
+  "per_class": {
+    "helmet": {
+      "precision": 0.948,
+      "recall": 0.8844,
+      "mAP50": 0.9184,
+      "mAP50_95": 0.7532
+    },
+    "no_helmet": {
+      "precision": 0.8368,
+      "recall": 0.743,
+      "mAP50": 0.8097,
+      "mAP50_95": 0.4724
+    },
+    "vest": {
+      "precision": 0.9718,
+      "recall": 0.9412,
+      "mAP50": 0.967,
+      "mAP50_95": 0.7947
+    },
+    "no_vest": {
+      "precision": 0.8438,
+      "recall": 0.7538,
+      "mAP50": 0.819,
+      "mAP50_95": 0.5655
+    },
+    "gloves": {
+      "precision": 0.9095,
+      "recall": 0.8451,
+      "mAP50": 0.8862,
+      "mAP50_95": 0.7546
+    },
+    "no_gloves": {
+      "precision": 0.9158,
+      "recall": 0.6847,
+      "mAP50": 0.7546,
+      "mAP50_95": 0.4711
+    },
+    "goggles": {
+      "precision": 0.9573,
+      "recall": 0.9568,
+      "mAP50": 0.9458,
+      "mAP50_95": 0.7103
+    },
+    "no_goggles": {
+      "precision": 0.7867,
+      "recall": 0.5244,
+      "mAP50": 0.6341,
+      "mAP50_95": 0.1994
+    },
+    "boots": {
+      "precision": 0.8691,
+      "recall": 0.7865,
+      "mAP50": 0.8537,
+      "mAP50_95": 0.6748
+    },
+    "no_boots": {
+      "precision": 0.8521,
+      "recall": 0.7767,
+      "mAP50": 0.7956,
+      "mAP50_95": 0.6626
+    }
+  },
+  "mean": {
+    "precision": 0.8891,
+    "recall": 0.7897,
+    "mAP50": 0.8384,
+    "mAP50_95": 0.6059
+  },
+  "speed_ms_per_image": {
+    "preprocess": 2.386,
+    "inference": 15.565,
+    "loss": 0.0,
+    "postprocess": 0.765
+  },
+  "note": "Image-level detector metrics on 416 px construction images; NOT system-level event recall on site video.",
+  "base_model": "yolo26m.pt",
+  "epochs": 120,
+  "imgsz": 1280,
+  "freeze": 0,
+  "seed": 42,
+  "train_minutes": 40.4
+}

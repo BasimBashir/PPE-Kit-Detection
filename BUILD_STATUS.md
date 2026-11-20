@@ -27,6 +27,7 @@ Licence: AGPL-3.0-or-later (user decision). Interview mapping: [docs/product/int
 | 9 Optimisation + edge | PARTIAL | classifier batching +38 % saturation throughput; TensorRT FP16 measured (2.4× per-call at batch 1, 1.25-1.35× at batch 10, engines not wired into the pipeline) and NVDEC probed (CPU decode faster on dev host, not integrated) — docs/benchmarks/phase2-performance.md; DeepStream/on-device edge NOT DONE |
 | 10 Portfolio release | IN_PROGRESS | README, demo script, test report, model/data cards; Phase 2 video (whole-team audience) pending |
 | 11 Phase 2: teacher review + fusion + distillation | VERIFIED | ADR-013; docs/ml/fusion_eval + teacher_eval (live) + distill_eval; smoke-tested end to end (fake: all 4 verdicts + escalation visible; gemini: ~80 clean reviews); 0 alerts suppressed (grid + SQL-capture tests) |
+| 12 Phase 3: multi-PPE rules + presets | PARTIAL | ADR-014; five items with mandatory/secondary rules, operator presets (API + UI), config-only item catalogue; network sharding `PPE_WORKER_SHARD` (unit-tested, off by default); items detector = plan C trained on Construction-PPE + HB1204, mAP50 0.851 on the unseen CPPE val (cross-dataset transfer gap flagged); 4K measured + sizing docs incl. hypothetical 25 fps full-rate table (docs/benchmarks/phase3-4k.md); NVDEC wired; live smoke VERIFIED (presets applied via API -> 5 rules hot-reloaded; 10x 4K dual-detector events with evidence + per-item overlay; gloves correctly UNKNOWN on wide clips, no false alerts) |
 
 ## Feature checklist (spec FR ids)
 | Area | Status | Notes |
@@ -74,7 +75,8 @@ Licence: AGPL-3.0-or-later (user decision). Interview mapping: [docs/product/int
 - The worker's RTSP behaviour is tested live (fault/load campaigns); the ingest loop itself is unit-tested on local files (`test_camera_source.py`: flow, backoff/offline/recovery, watchdog), not against a live RTSP source.
 
 ## Next exact tasks
-1. Record the Phase 2 video for the whole ALTAVE team (6-8 min, TTS + silent captioned; business-first).
-2. Re-tune teacher w/thresholds on reviewed site data before enabling; accumulate operator-confirmed labels and re-run the distillation study at real volume.
-3. Wire TensorRT engines into the pipeline (export path measured; the person-pose stage is the half that could lift the saturation ceiling); on-device edge benchmark.
+1. Record a Phase 3 clip: preset apply in the UI, multi-item overlay, secondary event on the Events page.
+2. Record the Phase 2 video for the whole ALTAVE team (6-8 min, TTS + silent captioned; business-first).
+3. Re-tune teacher w/thresholds on reviewed site data before enabling; accumulate operator-confirmed labels and re-run the distillation study at real volume.
+4. Wire TensorRT engines into the pipeline (export path measured; the person-pose stage is the half that could lift the saturation ceiling); on-device edge benchmark.
 5. Playwright E2E suite; live UDP source exercise.

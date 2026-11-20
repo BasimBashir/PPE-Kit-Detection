@@ -28,6 +28,7 @@ from app.config.settings import (
     get_settings,
     load_app_config,
     load_camera_seeds,
+    load_models_config,
     load_rule_seeds,
 )
 from app.core.logging import setup_logging
@@ -38,6 +39,7 @@ from app.evidence.store import EvidenceStore
 from app.observability import metrics as m
 from app.observability.resources import ResourceSampler
 from app.repositories.misc import get_setting, record_health, seed_if_empty
+from app.repositories.rules import seed_presets
 from app.services.live_state import LiveState
 from app.services.ws_hub import WebSocketHub
 
@@ -113,10 +115,12 @@ async def lifespan(app: FastAPI):
     _load_dotenv_into_environ()
     c: AppContext = app.state.ctx
     upgrade_to_head(c.settings.database_url)
+    load_models_config(c.settings)  # fills the PPE item catalogue (rule validation, UI, teacher) - ADR-014
     rules, zones = load_rule_seeds(c.settings)
     with session_scope(c.sf) as s:
         pw = c.settings.ppe_admin_password.get_secret_value() if c.settings.ppe_admin_password else None
         added = seed_if_empty(s, load_camera_seeds(c.settings), rules, zones, pw)
+        added["presets"] = seed_presets(s, c.settings.resolve(c.settings.ppe_config_dir) / "presets")
     log.info("startup seed: %s", added)
     loop = asyncio.get_running_loop()
     c.hub.bind(loop)

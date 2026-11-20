@@ -84,7 +84,7 @@ async def query_all(items: list[str], test: Path, cache_path: Path, req_log: Pat
                     "key": cache_key(img, model),
                     "file": rel,
                     "model": model,
-                    "p_teacher": v.p_no_helmet,
+                    "p_teacher": v.p_missing,
                     "latency_ms": round(v.latency_ms, 1),
                     "usage": v.raw.get("usage"),
                     "ts": time.time(),

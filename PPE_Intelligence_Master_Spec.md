@@ -1244,6 +1244,12 @@ Build in vertical slices. A working application is more valuable than a broad co
 
 **Exit criteria:** one RTSP stream connects, disconnects, and recovers without application restart.
 
+> **Phase 3 extension (multi-PPE, implemented 2026-11-20, ADR-014 + docs/ml/phase3-log.md):** vest, gloves,
+> goggles, safety_shoes alongside hard_hat; per-rule mandatory/secondary; operator presets per site/zone applied as
+> rule sets; configurable item catalogue (`models.yaml ppe_items`, new classes = config + detector training);
+> second detector for the four new items; per-item teacher questions; NVDEC ingest option; 4K measurements and
+> 10-50 camera sizing in docs/benchmarks/phase3-4k.md. (The original spec phase numbers below are unchanged.)
+
 ## Phase 4 — Multi-camera ingestion
 - Support ten configured camera sources.
 - Isolate per-camera state.

@@ -17,6 +17,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    true,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -95,6 +96,7 @@ class PPERule(Base):
     zone_id: Mapped[str | None] = mapped_column(ForeignKey("zones.id", ondelete="SET NULL"))
     severity: Mapped[str] = mapped_column(String(16), default="high")
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    mandatory: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())  # False = secondary
     thresholds: Mapped[dict[str, Any]] = mapped_column(JSONB)
     temporal_policy: Mapped[dict[str, Any]] = mapped_column(JSONB)
     updated_at: Mapped[datetime] = mapped_column(TS, default=utcnow, onupdate=utcnow)

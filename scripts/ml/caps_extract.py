@@ -111,7 +111,7 @@ def extract(clip: Path, out: Path, sample_fps: float, device: str) -> list[dict]
         ids = assign_identities(boxes, tracks)
         for p, ti in zip(persons, ids, strict=True):
             roi, src = head_roi(p, cfg, img.shape[1], img.shape[0])
-            if roi[2] - roi[0] < thr.min_head_px or roi[3] - roi[1] < thr.min_head_px:
+            if roi[2] - roi[0] < thr.min_roi_px or roi[3] - roi[1] < thr.min_roi_px:
                 continue
             crop = Associator._crop(img, roi)
             h = hist(crop)

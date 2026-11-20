@@ -12,14 +12,14 @@ from typing import Literal
 from urllib.parse import quote
 
 import yaml
-from pydantic import BaseModel, Field, SecretStr, field_validator, model_validator
+from pydantic import AliasChoices, BaseModel, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=REPO_ROOT / ".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=REPO_ROOT / ".env", extra="ignore", populate_by_name=True)
 
     postgres_user: str = "ppe"
     postgres_password: SecretStr = SecretStr("")
@@ -33,6 +33,8 @@ class Settings(BaseSettings):
     ppe_evidence_dir: Path = Path("evidence")
     ppe_spool_dir: Path = Path("spool")
     ppe_models_dir: Path = Path("models")
+    # Network sharding (ADR-014): "i/N" = this deployment handles cameras with sorted-index % N == i. Off when unset.
+    worker_shard: str | None = Field(default=None, alias="PPE_WORKER_SHARD")
     ppe_enable_fault_injection: bool = False  # enables /api/v1/system/faults (tests & demo only)
     gemini_api_key: SecretStr | None = None  # teacher review (provider gemini); registered for log redaction
 
@@ -53,6 +55,16 @@ class Settings(BaseSettings):
     def resolve(self, p: Path) -> Path:
         """Relative paths are relative to the repository root."""
         return p if p.is_absolute() else REPO_ROOT / p
+
+    @property
+    def shard(self) -> tuple[int, int] | None:
+        """Parsed PPE_WORKER_SHARD "i/N"; None = off (this deployment handles every camera)."""
+        if not self.worker_shard:
+            return None
+        i, _, n = self.worker_shard.partition("/")
+        if not i.isdigit() or not n.isdigit() or not (0 <= int(i) < int(n) <= 64):
+            raise ValueError(f"PPE_WORKER_SHARD must be 'i/N' with 0 <= i < N (got {self.worker_shard!r})")
+        return int(i), int(n)
 
 
 # ---------------------------------------------------------------- app.yaml
@@ -169,6 +181,40 @@ class AppConfig(BaseModel):
 # ---------------------------------------------------------------- models.yaml
 
 
+class PPEItem(BaseModel):
+    """One PPE item the system can enforce (Phase 3, ADR-014). Adding a class = an entry in models.yaml `ppe_items`
+    + a detector trained with its `present` / `absent` classes (mapped in `items_class_map`) - no code change."""
+
+    present: str  # detector class of the item (e.g. "gloves")
+    absent: str  # detector class of the bare body region (e.g. "no_gloves"; "head" for hard hats)
+    region: Literal["head", "eyes", "torso", "hands", "feet"]  # where the item must be (pose keypoints)
+    width_ratio: tuple[float, float] | None = None  # detection width / person width; None = helmet_width_ratio
+    label: str  # operator-facing name, e.g. "Gloves"
+    alert: str  # evidence / overlay text, e.g. "NO GLOVES"
+    teacher_question: str  # "Is the person NOT wearing <this>?" for the teacher (Phase 2)
+
+
+DEFAULT_PPE_ITEMS: dict[str, PPEItem] = {
+    "hard_hat": PPEItem(present="helmet", absent="head", region="head", label="Hard hat", alert="NO HARD HAT",
+                        teacher_question="a hard hat / safety helmet "
+                                         "(bare head, cap, hood or hair only counts as NOT)"),
+    "goggles": PPEItem(present="goggles", absent="no_goggles", region="eyes", width_ratio=(0.05, 0.7),
+                       label="Goggles", alert="NO GOGGLES",
+                       teacher_question="safety goggles or safety glasses over the eyes"),
+    "safety_vest": PPEItem(present="vest", absent="no_vest", region="torso", width_ratio=(0.3, 1.4),
+                           label="Safety vest", alert="NO SAFETY VEST",
+                           teacher_question="a high-visibility safety vest"),
+    "gloves": PPEItem(present="gloves", absent="no_gloves", region="hands", width_ratio=(0.03, 0.6), label="Gloves",
+                      alert="NO GLOVES", teacher_question="a protective work glove"),
+    "safety_shoes": PPEItem(present="boots", absent="no_boots", region="feet", width_ratio=(0.04, 0.8),
+                            label="Safety shoes", alert="NO SAFETY SHOES",
+                            teacher_question="a safety boot / protective work shoe "
+                                             "(sandals, bare feet or trainers count as NOT)"),
+}
+# Process-wide catalogue: defaults, replaced by models.yaml `ppe_items` in load_models_config() (API and worker).
+PPE_ITEMS: dict[str, PPEItem] = dict(DEFAULT_PPE_ITEMS)
+
+
 class ModelSpec(BaseModel):
     weights: str  # path relative to models dir, or an Ultralytics hub name (e.g. yolo26s-pose.pt)
     imgsz: int = 640
@@ -182,6 +228,16 @@ class ModelsConfig(BaseModel):
     person: ModelSpec  # COCO detector or pose model; class 0 = person
     ppe: ModelSpec  # helmet/head detector
     ppe_class_map: dict[str, int] = {"helmet": 0, "head": 1}
+    # Phase 3 second detector: vest / gloves / goggles / boots, each with its "no_*" class (absent = bare region)
+    items: ModelSpec | None = None
+    items_class_map: dict[str, int] = {"vest": 2, "no_vest": 3, "gloves": 4, "no_gloves": 5, "goggles": 6,
+                                       "no_goggles": 7, "boots": 8, "no_boots": 9}
+    ppe_items: dict[str, PPEItem] = DEFAULT_PPE_ITEMS  # the enforceable item catalogue (rules, UI, teacher)
+
+    @field_validator("ppe_items")
+    @classmethod
+    def _merge_items(cls, v: dict[str, PPEItem]) -> dict[str, PPEItem]:
+        return {**DEFAULT_PPE_ITEMS, **v}  # models.yaml adds or overrides items; the five built-ins stay available
     classifier: ModelSpec | None = None  # head-crop classifier (helmet / no_helmet)
     classifier_uncertain_below: float = 0.75
     cascade_skip_ppe_without_person: bool = True
@@ -234,23 +290,34 @@ class TemporalPolicy(BaseModel):
 
 
 class RuleThresholds(BaseModel):
+    """Per-rule gates. present/absent = the rule's item detected / its body region detected bare (Phase 3);
+    the Phase 1 names (helmet_conf, head_conf, min_head_px) are still accepted on input."""
+
     person_conf: float = Field(0.4, ge=0, le=1)
-    helmet_conf: float = Field(0.35, ge=0, le=1)
-    head_conf: float = Field(0.35, ge=0, le=1)
+    present_conf: float = Field(0.35, ge=0, le=1, validation_alias=AliasChoices("present_conf", "helmet_conf"))
+    absent_conf: float = Field(0.35, ge=0, le=1, validation_alias=AliasChoices("absent_conf", "head_conf"))
     min_person_height_px: int = Field(60, ge=1)
-    min_head_px: int = Field(12, ge=1)
+    min_roi_px: int = Field(12, ge=1, validation_alias=AliasChoices("min_roi_px", "min_head_px"))
 
 
 class RuleSeed(BaseModel):
     id: str = Field(pattern=r"^[a-z0-9][a-z0-9_-]{0,63}$")
     name: str
-    ppe_class: Literal["hard_hat"] = "hard_hat"
+    ppe_class: str = "hard_hat"  # a key of the PPE item catalogue (PPE_ITEMS)
     camera_id: str | None = None  # None = all cameras
     zone_id: str | None = None  # None = full frame
     severity: Literal["low", "medium", "high"] = "high"
     enabled: bool = True
+    mandatory: bool = True  # False = secondary: violations are recorded and listed, but no alert is delivered
     thresholds: RuleThresholds = RuleThresholds()
     temporal_policy: TemporalPolicy = TemporalPolicy()
+
+    @field_validator("ppe_class")
+    @classmethod
+    def _known_item(cls, v: str) -> str:
+        if v not in PPE_ITEMS:
+            raise ValueError(f"unknown PPE item {v!r}; configured: {', '.join(PPE_ITEMS)}")
+        return v
 
 
 class ZoneSeed(BaseModel):
@@ -293,7 +360,10 @@ def load_app_config(settings: Settings | None = None) -> AppConfig:
 
 def load_models_config(settings: Settings | None = None) -> ModelsConfig:
     s = settings or get_settings()
-    return ModelsConfig.model_validate(_load_yaml(s.resolve(s.ppe_config_dir), "models"))
+    cfg = ModelsConfig.model_validate(_load_yaml(s.resolve(s.ppe_config_dir), "models"))
+    PPE_ITEMS.clear()
+    PPE_ITEMS.update(cfg.ppe_items)
+    return cfg
 
 
 def load_camera_seeds(settings: Settings | None = None) -> list[CameraSeed]:

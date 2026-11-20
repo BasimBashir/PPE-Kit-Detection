@@ -1,7 +1,7 @@
 // Typed REST client: bearer auth from sessionStorage, structured error parsing (FR-API-004).
 import type {
   Camera, CameraCreate, CameraTestResult, CameraUpdate, EventDetail, FrameOut, MetricsSummary, Page, PPEEvent,
-  Role, Rule, SettingsOut, TemporalPolicy, Thresholds, User, Zone,
+  PPEItemInfo, Preset, Role, Rule, SettingsOut, TemporalPolicy, Thresholds, User, Zone,
 } from "../types/api";
 
 const TOKEN_KEY = "ppe.token";
@@ -93,8 +93,14 @@ export const api = {
   createZone: (cam: string, z: Omit<Zone, "camera_id">) => post<Zone>(`/api/v1/cameras/${cam}/zones`, z),
   deleteZone: (id: string) => json<void>(`/api/v1/zones/${id}`, { method: "DELETE" }),
   rules: () => json<Rule[]>("/api/v1/rules"),
-  patchRule: (id: string, b: { thresholds?: Thresholds; temporal_policy?: TemporalPolicy; enabled?: boolean; severity?: string }) =>
+  patchRule: (id: string, b: { thresholds?: Thresholds; temporal_policy?: TemporalPolicy; enabled?: boolean; mandatory?: boolean; severity?: string }) =>
     patch<Rule>(`/api/v1/rules/${id}`, b),
+  createRule: (b: Omit<Rule, "thresholds" | "temporal_policy" | "effective_confirm_seconds" | "updated_at">) => post<Rule>("/api/v1/rules", b),
+  ppeItems: () => json<PPEItemInfo[]>("/api/v1/ppe-items"),
+  presets: () => json<Preset[]>("/api/v1/presets"),
+  putPreset: (name: string, items: Preset["items"]) => json<Preset>(`/api/v1/presets/${name}`, { method: "PUT", body: JSON.stringify({ items }) }),
+  deletePreset: (name: string) => json<void>(`/api/v1/presets/${name}`, { method: "DELETE" }),
+  applyPreset: (name: string, b: { camera_id: string | null; zone_id: string | null }) => post<Rule[]>(`/api/v1/presets/${name}/apply`, b),
   events: (q: EventQuery) => json<Page<PPEEvent>>(`/api/v1/events${eventQueryString(q)}`),
   event: (id: string) => json<EventDetail>(`/api/v1/events/${id}`),
   acknowledge: (id: string, note?: string) => post<PPEEvent>(`/api/v1/events/${id}/acknowledge`, { note }),

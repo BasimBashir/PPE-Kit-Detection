@@ -4,6 +4,10 @@
 
 ## Purpose and scope
 When a violation becomes an alert, and how alerts are deduplicated (FR-TRK-004..008, FR-ALT-001..009).
+Phase 3 (ADR-014): one state machine per (camera, rule) and per item - the votes below are that rule's item
+(PRESENT/ABSENT, formerly HELMET/NO_HELMET). A rule's `mandatory` flag decides delivery: mandatory -> event +
+outbox (live alert); secondary -> the same event row tagged `secondary` with NO outbox rows (Events list only).
+Operator presets apply a named item->mandatory/secondary map to a scope as rule sets (ADR-014 2a).
 
 ## Assumptions
 - Baseline policy 12 of 15 decisive observations (interview: 10-15 frames).

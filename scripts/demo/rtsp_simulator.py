@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -119,7 +120,7 @@ class Publisher:
 class Simulator:
     def __init__(self, cams: list[str] | None, count: int | None = None):
         env = load_env()
-        streams = Path(env.get("STREAMS_DIR", "data/streams"))
+        streams = Path(os.environ.get("STREAMS_DIR") or env.get("STREAMS_DIR", "data/streams"))  # env wins: 4K runs
         streams = streams if streams.is_absolute() else ROOT / streams
         clips = sorted(streams.glob("cam*.mp4"))
         if cams:

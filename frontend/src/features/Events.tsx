@@ -4,7 +4,9 @@ import { api, auth, imageUrl, type EventQuery } from "../services/api";
 import { useLive } from "../hooks/useLiveSocket";
 import { EventStatus } from "../components/StatusBadge";
 import { fmtDateTime, fmtNum, fmtSec } from "../components/format";
-import type { EventDetail, Page, PPEEvent, TeacherReview, TeacherVerdict } from "../types/api";
+import { PPE_LABEL, type EventDetail, type Page, type PPEEvent, type TeacherReview, type TeacherVerdict } from "../types/api";
+
+const item = (c?: string) => (c ? PPE_LABEL[c] ?? c : "");
 
 const VERDICT: Record<TeacherVerdict, string> = {
   CONFIRMED: "agrees with the alert", LIKELY_FALSE_ALERT: "likely false alert — for human review (alert unchanged)",
@@ -90,7 +92,8 @@ export function Events() {
             <tr key={e.id} className={e.id === openId ? "selected" : ""} onClick={() => setParams({ open: e.id })} tabIndex={0}
               onKeyDown={(k) => k.key === "Enter" && setParams({ open: e.id })}>
               <td><Evidence id={e.id} has={e.has_evidence} className="thumb" /></td>
-              <td>{fmtDateTime(e.confirmed_at)}</td><td>{e.camera_name}</td><td>#{e.track_id}{e.reconfirm_count ? ` (+${e.reconfirm_count})` : ""}{e.confidence_summary.raised_by === "teacher_review" && <span className="muted small"> · teacher review</span>}</td>
+              <td>{fmtDateTime(e.confirmed_at)}</td><td>{e.camera_name}</td><td>#{e.track_id}{e.reconfirm_count ? ` (+${e.reconfirm_count})` : ""}{e.confidence_summary.raised_by === "teacher_review" && <span className="muted small"> · teacher review</span>}
+                {e.confidence_summary.ppe_class && <span className="muted small"> · {item(e.confidence_summary.ppe_class)}</span>}{e.confidence_summary.secondary && <span className="muted small"> · secondary</span>}</td>
               <td><EventStatus status={e.status} /></td><td>{e.feedback?.replace("_", " ").toLowerCase() ?? "—"}</td>
               <td>{fmtSec(e.latency.time_to_confirm_s)}</td><td>{fmtSec(e.latency.confirm_to_persist_s)}</td><td>{fmtSec(e.latency.persist_to_dashboard_s)}</td>
             </tr>))}</tbody>
@@ -111,9 +114,10 @@ export function Events() {
           {detail.evidence_error && <p className="error">Evidence not stored: {detail.evidence_error}</p>}
           <dl className="kv">
             <dt>Status</dt><dd><EventStatus status={detail.status} /></dd>
+            <dt>Rule</dt><dd>{detail.rule_id}{detail.confidence_summary.ppe_class && ` · ${item(detail.confidence_summary.ppe_class)}`}{detail.confidence_summary.secondary && " · secondary (no live alert)"}</dd>
             <dt>Reason</dt><dd>{detail.reason}</dd>
-            <dt>Votes</dt><dd>{detail.confidence_summary.no_helmet_votes} of {detail.confidence_summary.decisive_votes} decisive observations without hard hat</dd>
-            <dt>Mean confidence</dt><dd>{fmtNum(detail.confidence_summary.mean_confidence, 2)} · head ROI from {detail.confidence_summary.roi_source}{detail.confidence_summary.classifier_used ? " · classifier used" : ""}</dd>
+            <dt>Votes</dt><dd>{detail.confidence_summary.no_helmet_votes} of {detail.confidence_summary.decisive_votes} decisive observations without {item(detail.confidence_summary.ppe_class ?? "hard_hat").toLowerCase()}</dd>
+            <dt>Mean confidence</dt><dd>{fmtNum(detail.confidence_summary.mean_confidence, 2)} · ROI from {detail.confidence_summary.roi_source}{detail.confidence_summary.classifier_used ? " · classifier used" : ""}</dd>
             <dt>First seen → confirmed</dt><dd>{fmtDateTime(detail.first_seen_at)} → {fmtDateTime(detail.confirmed_at)} ({fmtSec(detail.latency.time_to_confirm_s)})</dd>
             <dt>Frame → persisted</dt><dd>{fmtSec(detail.latency.frame_to_persist_s ?? null)}</dd>
             <dt>Episode ended</dt><dd>{fmtDateTime(detail.episode_ended_at)}</dd>

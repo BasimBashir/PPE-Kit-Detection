@@ -41,7 +41,18 @@ PROFILES: dict[str, dict] = {
     "ablation_B_pose_geometry": {"cams": 10, "fps": 5, "head_roi": "geometry", "classifier": False},
     "ablation_C_pose_keypoints": {"cams": 10, "fps": 5, "head_roi": "keypoints", "classifier": False},
     "ablation_D_full_cascade": {"cams": 10, "fps": 5, "head_roi": "keypoints", "classifier": True},
+    # Phase 3: all five item rules (construction preset) + the items detector. "uhd_*" profiles need the simulator
+    # serving 4K clips (STREAMS_DIR=<dir from fetch_demo_videos.py --height 2160>); resolution is recorded per camera.
+    "p3_items_cams10_fps5": {"cams": 10, "fps": 5, "rules": "construction", "items": True},
+    "p3_uhd_cams1_fps5": {"cams": 1, "fps": 5, "rules": "construction", "items": True},
+    "p3_uhd_cams4_fps5": {"cams": 4, "fps": 5, "rules": "construction", "items": True},
+    "p3_uhd_cams10_fps2": {"cams": 10, "fps": 2, "rules": "construction", "items": True},
+    "p3_uhd_cams10_fps5": {"cams": 10, "fps": 5, "rules": "construction", "items": True},
+    "p3_uhd_cams10_fps5_nvdec": {"cams": 10, "fps": 5, "rules": "construction", "items": True, "hwaccel": "cuda"},
+    "p3_uhd_cams10_fps5_nvdec_conv1": {"cams": 10, "fps": 5, "rules": "construction", "items": True,
+                                       "hwaccel": "cuda", "convert": 1.0},
 }
+ITEMS_MODEL = {"weights": "ppe_items_yolo26m.pt", "imgsz": 1280, "conf": 0.25}  # see docs/ml/phase3-log.md
 
 
 def load_env() -> None:
@@ -94,6 +105,12 @@ def run_profile(name: str, seconds: float, warmup: float) -> dict:
                  ppe_spool_dir=Path(f"docs/benchmarks/scratch/spool_{name}"))
     sf = make_session_factory(make_engine(url))
     rules, zones = load_rule_seeds(s)
+    if "rules" in p:  # a site preset: every PPE item gets a rule (mandatory or secondary)
+        import yaml
+        from app.config.settings import RuleSeed
+
+        preset = yaml.safe_load((ROOT / "configs" / "presets" / f"{p['rules']}.yaml").read_text(encoding="utf-8"))
+        rules = [RuleSeed.model_validate(r) for r in preset["rules"]]
     cams = load_camera_seeds(s)
     with session_scope(sf) as ss:
         seed_if_empty(ss, cams, rules, zones, None)
@@ -102,6 +119,8 @@ def run_profile(name: str, seconds: float, warmup: float) -> dict:
     app_cfg = load_app_config(s)
     app_cfg.pipeline.target_fps = p["fps"]
     app_cfg.pipeline.max_batch = max(10, p["cams"])
+    app_cfg.ingest.hwaccel = p.get("hwaccel", app_cfg.ingest.hwaccel)
+    app_cfg.pipeline.convert_fps_factor = p.get("convert", app_cfg.pipeline.convert_fps_factor)
     if "head_roi" in p:
         app_cfg.association.head_roi = p["head_roi"]
     if "classifier" in p:
@@ -111,6 +130,10 @@ def run_profile(name: str, seconds: float, warmup: float) -> dict:
         models.person.weights = p["person"]
     if p.get("classifier") is False:
         models.classifier = None
+    if p.get("items"):
+        from app.config.settings import ModelSpec
+
+        models.items = ModelSpec(**ITEMS_MODEL)
 
     tq, cq = mp.Queue(1024), mp.Queue()
     w = PipelineWorker(s, app_cfg, models, tq, cq)
@@ -162,8 +185,9 @@ def run_profile(name: str, seconds: float, warmup: float) -> dict:
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "hardware": hw_info(),
         "model_versions": w.model_versions,
         "aggregate_processed_fps": stat("agg_fps"), "target_aggregate_fps": p["cams"] * p["fps"],
-        "per_camera": [{k: c[k] for k in ("camera_id", "state", "source_fps", "decoded_fps", "processed_fps",
-                                          "frame_age_at_inference_p95_s", "frames_dropped", "reconnect_count")}
+        "per_camera": [{k: c.get(k) for k in ("camera_id", "state", "width", "height", "source_fps", "decoded_fps",
+                                              "processed_fps", "frame_age_at_inference_p95_s", "frames_dropped",
+                                              "reconnect_count")}
                        for c in enabled],
         "inference_ms": (last_stats or {}).get("inference", {}),
         "batch_size_median": (last_stats or {}).get("batch_size_mean"),

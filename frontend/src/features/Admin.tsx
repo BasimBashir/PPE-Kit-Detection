@@ -1,8 +1,9 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api, auth } from "../services/api";
 import { StatusBadge } from "../components/StatusBadge";
+import { ZoneDrawer } from "../components/ZoneDrawer";
 import { fmtDateTime } from "../components/format";
-import type { Camera, CameraCreate, CameraTestResult, Role, Rule, SettingsOut, TemporalPolicy, Thresholds, User, Zone } from "../types/api";
+import type { Camera, CameraCreate, CameraTestResult, PPEItemInfo, Preset, Role, Rule, SettingsOut, TemporalPolicy, Thresholds, User, Zone } from "../types/api";
 
 const EMPTY: CameraCreate = { id: "", name: "", stream_uri: "rtsp://", credential_ref: "env:RTSP_READ", transport: "tcp", enabled: true };
 
@@ -84,6 +85,7 @@ export function CameraConfig() {
 }
 
 const NUM = (v: string) => Number(v);
+const EMPTY_RULE = { id: "", name: "", ppe_class: "hard_hat", camera_id: null as string | null, zone_id: null as string | null, severity: "medium" as Rule["severity"], enabled: true, mandatory: true };
 
 export function RulesSettings() {
   const [rules, setRules] = useState<Rule[]>([]);
@@ -92,18 +94,25 @@ export function RulesSettings() {
   const [zoneCam, setZoneCam] = useState("");
   const [zones, setZones] = useState<Zone[]>([]);
   const [zoneForm, setZoneForm] = useState({ id: "", name: "", kind: "monitor" as Zone["kind"], polygon: "0,0 1,0 1,1 0,1" });
+  const [items, setItems] = useState<PPEItemInfo[]>([]);
+  const [presets, setPresets] = useState<Preset[]>([]);
+  const [presetForm, setPresetForm] = useState<{ name: string; items: Preset["items"] }>({ name: "", items: {} });
+  const [applyTo, setApplyTo] = useState<Record<string, { camera_id: string | null; zone_id: string | null }>>({});
+  const [ruleForm, setRuleForm] = useState(EMPTY_RULE);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   useEffect(() => {
     api.rules().then(setRules).catch((e) => setErr(e.message));
     api.settings().then(setSettings).catch(() => {});
     api.cameras().then((c) => { setCams(c); setZoneCam(c[0]?.id ?? ""); }).catch(() => {});
+    api.ppeItems().then(setItems).catch(() => {});
+    api.presets().then(setPresets).catch((e) => setErr(e.message));
   }, []);
   useEffect(() => { if (zoneCam) api.zones(zoneCam).then(setZones).catch(() => setZones([])); }, [zoneCam]);
 
   const save = async (r: Rule) => {
     try {
-      const out = await api.patchRule(r.id, { thresholds: r.thresholds, temporal_policy: r.temporal_policy, enabled: r.enabled, severity: r.severity });
+      const out = await api.patchRule(r.id, { thresholds: r.thresholds, temporal_policy: r.temporal_policy, enabled: r.enabled, mandatory: r.mandatory, severity: r.severity });
       setRules((rs) => rs.map((x) => (x.id === out.id ? out : x)));
       setMsg(`Saved ${r.id}: confirmation needs ≈ ${out.effective_confirm_seconds} s at the configured FPS`); setErr(null);
     } catch (e) { setErr((e as Error).message); }
@@ -111,6 +120,30 @@ export function RulesSettings() {
   const upd = (id: string, f: (r: Rule) => Rule) => setRules((rs) => rs.map((r) => (r.id === id ? f(r) : r)));
   const th = (r: Rule, k: keyof Thresholds, v: number) => upd(r.id, (x) => ({ ...x, thresholds: { ...x.thresholds, [k]: v } }));
   const tp = (r: Rule, k: keyof TemporalPolicy, v: number | string) => upd(r.id, (x) => ({ ...x, temporal_policy: { ...x.temporal_policy, [k]: v } }));
+  const addRule = async (e: FormEvent) => {
+    e.preventDefault();
+    try {
+      const out = await api.createRule(ruleForm);
+      setRules((rs) => [...rs, out]); setRuleForm(EMPTY_RULE);
+      setMsg(`Created ${out.id}`); setErr(null);
+    } catch (x) { setErr((x as Error).message); }
+  };
+  const itemLabel = (id: string) => items.find((i) => i.id === id)?.label ?? id;
+  const applyPreset = async (e: FormEvent, name: string) => {
+    e.preventDefault();
+    try {
+      const out = await api.applyPreset(name, applyTo[name] ?? { camera_id: null, zone_id: null });
+      setRules((rs) => { const m = new Map(rs.map((r) => [r.id, r])); for (const r of out) m.set(r.id, r); return [...m.values()]; });
+      setMsg(`Applied ${name}: ${out.length} rules`); setErr(null);
+    } catch (x) { setErr((x as Error).message); }
+  };
+  const savePreset = async (e: FormEvent) => {
+    e.preventDefault();
+    try {
+      await api.putPreset(presetForm.name, presetForm.items);
+      setPresets(await api.presets()); setMsg(`Saved preset ${presetForm.name}`); setErr(null);
+    } catch (x) { setErr((x as Error).message); }
+  };
   const addZone = async (e: FormEvent) => {
     e.preventDefault();
     try {
@@ -127,10 +160,11 @@ export function RulesSettings() {
       {err && <p className="error" role="alert">{err}</p>}
       {rules.map((r) => (
         <section key={r.id} className="card">
-          <h2>{r.name} <small className="muted">{r.id}</small></h2>
+          <h2>{r.name} <small className="muted">{r.id} · {itemLabel(r.ppe_class)} · {r.camera_id ?? "all cameras"} / {r.zone_id ?? "full frame"}</small></h2>
           <p className="muted">Effective minimum confirmation time: <strong>{r.effective_confirm_seconds} s</strong> (spec 5.1: sample counts depend on processed FPS)</p>
           <div className="form-grid">
             <label><input type="checkbox" checked={r.enabled} onChange={(e) => upd(r.id, (x) => ({ ...x, enabled: e.target.checked }))} /> enabled</label>
+            <label><input type="checkbox" checked={r.mandatory} onChange={(e) => upd(r.id, (x) => ({ ...x, mandatory: e.target.checked }))} /> mandatory (alerts) <small className="muted">unchecked = secondary: recorded, no live alert</small></label>
             {(Object.keys(r.thresholds) as (keyof Thresholds)[]).map((k) => (
               <label key={k}>{k.replace(/_/g, " ")}<input type="number" step="any" value={r.thresholds[k]} onChange={(e) => th(r, k, NUM(e.target.value))} /></label>
             ))}
@@ -142,9 +176,50 @@ export function RulesSettings() {
           <button className="btn primary" onClick={() => save(r)}>Save rule</button>
         </section>
       ))}
+      <form className="card form-grid" onSubmit={addRule} aria-label="New rule">
+        <h2>New rule</h2>
+        <label>ID<input value={ruleForm.id} pattern="[a-z0-9][a-z0-9_-]{0,63}" required onChange={(e) => setRuleForm({ ...ruleForm, id: e.target.value })} /></label>
+        <label>Name<input value={ruleForm.name} required onChange={(e) => setRuleForm({ ...ruleForm, name: e.target.value })} /></label>
+        <label>Item<select value={ruleForm.ppe_class} onChange={(e) => setRuleForm({ ...ruleForm, ppe_class: e.target.value })}>{items.map((i) => <option key={i.id} value={i.id}>{i.label}</option>)}</select></label>
+        <label>Camera<select value={ruleForm.camera_id ?? ""} onChange={(e) => setRuleForm({ ...ruleForm, camera_id: e.target.value || null })}><option value="">All cameras</option>{cams.map((c) => <option key={c.id} value={c.id}>{c.id}</option>)}</select></label>
+        <label>Zone ID (blank = full frame; see Zones below)<input value={ruleForm.zone_id ?? ""} onChange={(e) => setRuleForm({ ...ruleForm, zone_id: e.target.value || null })} /></label>
+        <label>Severity<select value={ruleForm.severity} onChange={(e) => setRuleForm({ ...ruleForm, severity: e.target.value as Rule["severity"] })}><option>low</option><option>medium</option><option>high</option></select></label>
+        <label><input type="checkbox" checked={ruleForm.mandatory} onChange={(e) => setRuleForm({ ...ruleForm, mandatory: e.target.checked })} /> mandatory (alerts) <small className="muted">unchecked = secondary: recorded, no live alert</small></label>
+        <div className="row-actions"><button className="btn primary">Create rule</button></div>
+      </form>
+      <section className="card">
+        <h2>Presets</h2>
+        <p className="muted small">Mandatory = live alert · Secondary = recorded, no live alert · Off = not checked</p>
+        <ul>{presets.map((p) => {
+          const t = applyTo[p.name] ?? { camera_id: null, zone_id: null };
+          return (
+            <li key={p.name}>
+              <code>{p.name}</code> — {Object.entries(p.items).map(([id, m]) => `${itemLabel(id)}: ${m}`).join(" · ") || "empty"}
+              <button className="btn ghost" onClick={() => setPresetForm({ name: p.name, items: { ...p.items } })}>edit</button>
+              <button className="btn ghost" onClick={async () => { await api.deletePreset(p.name); setPresets(await api.presets()); }}>delete</button>
+              <form className="form-grid" onSubmit={(e) => applyPreset(e, p.name)} aria-label={`Apply ${p.name}`}>
+                <label>Camera<select value={t.camera_id ?? ""} onChange={(e) => setApplyTo({ ...applyTo, [p.name]: { ...t, camera_id: e.target.value || null } })}><option value="">All cameras</option>{cams.map((c) => <option key={c.id} value={c.id}>{c.id}</option>)}</select></label>
+                <label>Zone ID (blank = full frame)<input value={t.zone_id ?? ""} onChange={(e) => setApplyTo({ ...applyTo, [p.name]: { ...t, zone_id: e.target.value || null } })} /></label>
+                <button className="btn primary">Apply</button>
+              </form>
+            </li>);
+        })}</ul>
+        <form className="form-grid" onSubmit={savePreset} aria-label="New or edit preset">
+          <h2>New / edit preset</h2>
+          <label>Name<input value={presetForm.name} pattern="[a-z0-9][a-z0-9_-]{0,23}" required onChange={(e) => setPresetForm({ ...presetForm, name: e.target.value })} /></label>
+          {items.map((i) => (
+            <label key={i.id}>{i.label}<select value={presetForm.items[i.id] ?? "off"} onChange={(e) => {
+              const { [i.id]: _drop, ...rest } = presetForm.items;
+              setPresetForm({ ...presetForm, items: e.target.value === "off" ? rest : { ...rest, [i.id]: e.target.value as "mandatory" | "secondary" } });
+            }}><option value="off">Off</option><option value="mandatory">Mandatory</option><option value="secondary">Secondary</option></select></label>
+          ))}
+          <div className="row-actions"><button className="btn primary">Save preset</button></div>
+        </form>
+      </section>
       <section className="card">
         <h2>Zones</h2>
         <label>Camera <select value={zoneCam} onChange={(e) => setZoneCam(e.target.value)}>{cams.map((c) => <option key={c.id}>{c.id}</option>)}</select></label>
+        <ZoneDrawer cameraId={zoneCam} polygon={zoneForm.polygon} onChange={(polygon) => setZoneForm({ ...zoneForm, polygon })} existing={zones} draftKind={zoneForm.kind} />
         <ul>{zones.map((z) => <li key={z.id}><code>{z.id}</code> {z.name} — {z.kind} — {z.polygon.map((p) => p.join(",")).join(" ")}
           <button className="btn ghost" onClick={async () => { await api.deleteZone(z.id); setZones(await api.zones(zoneCam)); }}>delete</button></li>)}</ul>
         <form className="form-grid" onSubmit={addZone}>

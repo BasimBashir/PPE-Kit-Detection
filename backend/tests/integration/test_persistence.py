@@ -101,6 +101,20 @@ def test_one_episode_one_event_with_outbox_and_evidence(seeded, tmp_path):
     assert [n["action"] for n in note] == ["created"]
 
 
+def test_secondary_rule_records_event_without_alert_delivery(seeded, tmp_path):
+    """Phase 3 (ADR-014): a secondary (non-mandatory) rule writes the event, tagged, but no outbox row = no alert."""
+    svc, _, _ = make_service(seeded, tmp_path)
+    v = violation()
+    v.ppe_class, v.mandatory, v.item_roi = "gloves", False, (180.0, 250.0, 215.0, 285.0)
+    svc.submit_confirmed(v)
+    svc.drain()
+    svc.stop()
+    assert count(seeded, Event) == 1 and count(seeded, AlertOutbox) == 0
+    with session_scope(seeded) as s:
+        cs = s.scalar(select(Event)).confidence_summary
+        assert cs["ppe_class"] == "gloves" and cs["secondary"] is True
+
+
 def test_cooldown_reopens_and_after_cooldown_creates_new(seeded, tmp_path):
     svc, _, _ = make_service(seeded, tmp_path, AlertsConfig(cooldown_s=0.3, spatial_dedupe_s=0))
     svc.submit_confirmed(violation(seq=1))

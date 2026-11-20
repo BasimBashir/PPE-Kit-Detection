@@ -11,8 +11,9 @@ const STATE_COLOR: Record<string, string> = {
   UNKNOWN: "#9a9993",
 };
 const STATE_SHORT: Record<string, string> = {
-  COMPLIANT: "OK", CLEARED: "CLEARED", SUSPECTED_NON_COMPLIANT: "SUSPECT", CONFIRMED_NON_COMPLIANT: "NO HAT", UNKNOWN: "?",
+  COMPLIANT: "OK", CLEARED: "CLEARED", SUSPECTED_NON_COMPLIANT: "SUSPECT", UNKNOWN: "?",
 };
+const ITEM_SHORT: Record<string, string> = { hard_hat: "HAT", safety_vest: "VEST", gloves: "GLOVES", goggles: "GOGGLES", safety_shoes: "SHOES" };
 
 function draw(ctx: CanvasRenderingContext2D, f: FrameOut) {
   ctx.clearRect(0, 0, f.width, f.height);
@@ -24,15 +25,15 @@ function draw(ctx: CanvasRenderingContext2D, f: FrameOut) {
     ctx.strokeStyle = c;
     ctx.setLineDash([]);
     ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
-    if (t.head_roi) {
+    if (t.item_roi) {
       ctx.setLineDash([3, 3]);
-      ctx.strokeRect(t.head_roi[0], t.head_roi[1], t.head_roi[2] - t.head_roi[0], t.head_roi[3] - t.head_roi[1]);
+      ctx.strokeRect(t.item_roi[0], t.item_roi[1], t.item_roi[2] - t.item_roi[0], t.item_roi[3] - t.item_roi[1]);
     }
     ctx.setLineDash([]);
-    for (const [b, col] of [[t.helmet_box, "#3987e5"], [t.head_box, "#ec835a"]] as const) {
+    for (const [b, col] of [[t.present_box, "#3987e5"], [t.absent_box, "#ec835a"]] as const) {
       if (b) { ctx.strokeStyle = col; ctx.lineWidth = 1; ctx.strokeRect(b[0], b[1], b[2] - b[0], b[3] - b[1]); ctx.lineWidth = 1.5; }
     }
-    const label = `#${t.track_id} ${STATE_SHORT[t.ppe_state] ?? t.ppe_state}`;
+    const label = `#${t.track_id} ${t.ppe_state === "CONFIRMED_NON_COMPLIANT" ? `NO ${ITEM_SHORT[t.ppe_class] ?? t.ppe_class.toUpperCase()}` : STATE_SHORT[t.ppe_state] ?? t.ppe_state}`;
     const w = ctx.measureText(label).width + 6;
     const ly = y1 - 15 >= 0 ? y1 - 15 : y2 + 1; // above the box, or below if clipped - never over the head
     ctx.fillStyle = "rgba(10,10,10,0.75)";

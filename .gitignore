@@ -40,6 +40,7 @@ runs/
 !models/yolo26s-pose.pt
 !models/ppe_yolo26s.pt
 !models/head_cls_yolo26n.pt
+!models/ppe_items_yolo26m.pt
 *.onnx
 *.engine
 

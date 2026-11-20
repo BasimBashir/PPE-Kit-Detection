@@ -1,0 +1,12 @@
+# Site preset: construction (Phase 3, ADR-014). Copy to configs/rules.yaml before the first start (rules are seeded
+# into the database once, then managed in Rules & settings), or create the same rules there.
+# mandatory: true  -> a confirmed violation raises a live alert (dashboard push, optional sound)
+# mandatory: false -> secondary: the violation is recorded and listed on the Events page, no live alert
+# zone_id: null = whole frame; set a monitor-zone id to scope a rule to one working area.
+rules:
+  - {id: hardhat-required, name: Hard hat required, ppe_class: hard_hat, mandatory: true, severity: high}
+  - {id: vest-required, name: Safety vest required, ppe_class: safety_vest, mandatory: true, severity: high}
+  - {id: shoes-required, name: Safety shoes required, ppe_class: safety_shoes, mandatory: true, severity: medium}
+  - {id: gloves-advised, name: Gloves (secondary), ppe_class: gloves, mandatory: false, severity: low}
+  - {id: goggles-advised, name: Goggles (secondary), ppe_class: goggles, mandatory: false, severity: low}
+zones: []

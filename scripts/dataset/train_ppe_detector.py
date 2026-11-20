@@ -24,11 +24,13 @@ def sha12(p: Path) -> str:
     return hashlib.sha256(p.read_bytes()).hexdigest()[:12]
 
 
-def evaluate(weights: Path, data: str, name: str, device: str, extra: dict) -> dict:
+def evaluate(weights: Path, data: str, name: str, device: str, extra: dict, imgsz: int = 640,
+             license_: str = "CC0-1.0 (Hard Hat Workers via Voxel51/hard-hat-detection)", split: str = "test") -> dict:
     from ultralytics import YOLO
 
-    r = YOLO(str(weights)).val(data=data, split="test", imgsz=640, batch=32, device=device, plots=False,
-                               verbose=False, project=str(Path(weights).parents[2]), name=f"{name}_test", exist_ok=True)
+    r = YOLO(str(weights)).val(data=data, split=split, imgsz=imgsz, batch=16, device=device, plots=False,
+                               verbose=False, project=str(Path(weights).parents[2]), name=f"{name}_{split}",
+                               exist_ok=True)
     per_class = {}
     for i, c in enumerate(r.box.ap_class_index):
         p, rc, ap50, ap = r.box.class_result(i)
@@ -36,8 +38,8 @@ def evaluate(weights: Path, data: str, name: str, device: str, extra: dict) -> d
                                       "mAP50": round(float(ap50), 4), "mAP50_95": round(float(ap), 4)}
     mp, mr, map50, mapall = (round(float(v), 4) for v in r.box.mean_results())
     out = {
-        "model": name, "weights_sha256_12": sha12(weights), "split": "test", "dataset": data,
-        "dataset_license": "CC0-1.0 (Hard Hat Workers via Voxel51/hard-hat-detection)",
+        "model": name, "weights_sha256_12": sha12(weights), "split": split, "dataset": data,
+        "dataset_license": license_,
         "evaluated_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         "per_class": per_class, "mean": {"precision": mp, "recall": mr, "mAP50": map50, "mAP50_95": mapall},
         "speed_ms_per_image": {k: round(v, 3) for k, v in r.speed.items()},
@@ -45,7 +47,7 @@ def evaluate(weights: Path, data: str, name: str, device: str, extra: dict) -> d
                 "site video.",
         **extra,
     }
-    dst = ROOT / "docs" / "ml" / f"{name}_eval.json"
+    dst = ROOT / "docs" / "ml" / f"{name}_eval{'' if split == 'test' else '_' + split}.json"
     dst.parent.mkdir(parents=True, exist_ok=True)
     dst.write_text(json.dumps(out, indent=2))
     print(json.dumps(out, indent=2))
@@ -65,7 +67,10 @@ def main() -> int:
     ap.add_argument("--name", default="ppe_yolo26s")
     ap.add_argument("--fraction", type=float, default=1.0)
     ap.add_argument("--eval-only", type=Path, help="skip training, evaluate these weights")
-    ap.add_argument("--install", action="store_true", help="copy best.pt to models/ppe_yolo26s.pt")
+    ap.add_argument("--install", action="store_true", help="copy best.pt to models/<--install-as>")
+    ap.add_argument("--install-as", default="ppe_yolo26s.pt")
+    ap.add_argument("--license", default="CC0-1.0 (Hard Hat Workers via Voxel51/hard-hat-detection)")
+    ap.add_argument("--extra-test-split", action="append", default=[], help="also evaluate a split, e.g. test_hb1204")
     a = ap.parse_args()
 
     extra = {"base_model": a.model, "epochs": a.epochs, "imgsz": a.imgsz, "freeze": a.freeze, "seed": 42}
@@ -80,9 +85,11 @@ def main() -> int:
                             fraction=a.fraction, patience=20, workers=8, plots=True)
         extra["train_minutes"] = round((time.time() - t0) / 60, 1)
         best = Path(a.project) / a.name / "weights" / "best.pt"
-    evaluate(best, a.data, a.name, a.device, extra)
+    evaluate(best, a.data, a.name, a.device, extra, a.imgsz, a.license)
+    for sp in a.extra_test_split:
+        evaluate(best, a.data, a.name, a.device, extra, a.imgsz, a.license, sp)
     if a.install:
-        dst = ROOT / "models" / "ppe_yolo26s.pt"
+        dst = ROOT / "models" / a.install_as
         shutil.copy2(best, dst)
         print(f"installed {dst} sha256[:12]={sha12(dst)}")
     return 0

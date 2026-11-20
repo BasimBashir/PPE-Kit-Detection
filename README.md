@@ -1,6 +1,6 @@
-# PPE Intelligence — offline multi-camera hard-hat compliance analytics
+# PPE Intelligence — offline multi-camera PPE compliance analytics
 
-An independent, fully working portfolio project: 10 RTSP camera streams → person + hard-hat detection → per-camera tracking → head-region association → temporal confirmation → durable, deduplicated alerts with evidence → live dashboard, with real fault tolerance and measured performance.
+An independent, fully working portfolio project: 10 RTSP camera streams → person + PPE detection (hard hat, safety vest, gloves, goggles, safety shoes) → per-camera tracking → body-region association → temporal confirmation → durable, deduplicated alerts with evidence → live dashboard, with real fault tolerance and measured performance. Operators set per site/zone which items are **mandatory** (live alert) or **secondary** (recorded only), as named presets; the item catalogue is configuration (`models.yaml ppe_items`), so new classes need no code. 4K streams are measured and supported (NVDEC; `docs/benchmarks/phase3-4k.md`).
 
 > Independent portfolio project inspired by a generic on-ship PPE-monitoring design exercise. It is **not** an ALTAVE product, uses no ALTAVE code, data or footage, and makes **no** safety-certification or field-accuracy claim. The demo cameras are **simulated** (stock clips looped through a local RTSP server) and the dashboard says so.
 

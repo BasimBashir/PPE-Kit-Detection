@@ -9,7 +9,7 @@ import numpy as np
 
 from app.streaming.frame import Frame
 
-DetClass = Literal["person", "helmet", "head"]
+DetClass = str  # "person", "helmet", "head", and Phase 3 "vest"/"no_vest", "gloves"/"no_gloves", ... (models.yaml maps)
 
 # COCO-17 keypoint indices used for head ROI
 KP_NOSE, KP_LEYE, KP_REYE, KP_LEAR, KP_REAR, KP_LSHOULDER, KP_RSHOULDER = 0, 1, 2, 3, 4, 5, 6

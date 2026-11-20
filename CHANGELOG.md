@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.0 - 2026-11-20
+Phase 3: multi-PPE (vest, gloves, goggles, safety shoes) with per-site mandatory/secondary rules, operator presets, configurable item catalogue, 4K support.
+
+- Rules are item-generic (ADR-014): `ppe_rules.ppe_class` in {hard_hat, safety_vest, gloves, goggles, safety_shoes}, new `mandatory` flag (migration 0003) - mandatory rules alert, secondary rules are recorded and listed with a "secondary" tag but never push a live alert. The Phase 1 associator now matches any item to its body region from pose keypoints (head/eyes, torso, each wrist, each ankle); one bare hand or foot is a violation, non-visible regions stay UNCERTAIN (never a violation). Threshold keys renamed `present_conf`/`absent_conf`/`min_roi_px` (Phase 1 names still accepted; migration rewrites stored rules).
+- Operator presets ("projects"): a named item -> mandatory/secondary map, created/edited/applied in Rules & settings (`GET/PUT/DELETE /api/v1/presets`, `POST /api/v1/presets/{name}/apply` with camera/zone scope, idempotent). construction/welding presets seeded on first start.
+- Item catalogue is configuration (`models.yaml ppe_items`): detector classes, body region, labels, teacher question. New enforced class = detector training + config entry (no code); `GET /api/v1/ppe-items` feeds the UI. Second detector (`models.items`) covers the four new items; the measured helmet stack is unchanged. Teacher review asks one item-specific question per crop; asymmetric policy unchanged (never suppresses).
+- 4K streams measured and supported (docs/benchmarks/phase3-4k.md): NVDEC hardware decode (`ingest.hwaccel: cuda`, software fallback), single resize shared by all model stages, preview pipeline shrunk before masking. 10 x 4K@25fps: host CPU 92% -> 57%; sizing tables for 10-50 cameras at the recommended 5 fps inference (one 24 GB GPU + ~16 cores per 10 cameras) and analysed at full 25 fps inference (marked hypothetical), plus a full-rate accuracy note.
+- Network sharding (on/off): `PPE_WORKER_SHARD=i/N` splits cameras deterministically across N app instances sharing one PostgreSQL (off by default; docs/benchmarks/phase3-4k.md section 4).
+- Tests: backend 112 passing incl. multi-item association (bare hand beats gloved hand, ground vest not credited, config-only new class end to end), secondary-rule no-outbox (SQL), preset API flow; frontend 16 passing; weights `ppe_items_yolo26m.pt` = plan C (mAP50 0.851 on the held-out Construction-PPE val; cross-dataset holdout on HB1204 shows a convention gap, site fine-tune expected; plans A/B/C compared in docs/ml/phase3-log.md).
+
 ## 0.2.0 - 2026-11-18
 Phase 2: asynchronous teacher review, measured last-layer fusion, distillation flywheel.
 

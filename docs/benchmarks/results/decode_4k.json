@@ -1,0 +1,63 @@
+{
+ "source": {
+  "codec": "h264",
+  "width": 3840,
+  "height": 2160,
+  "fps": 25.0
+ },
+ "convert_every": 3,
+ "seconds": 15.0,
+ "cpu": 12,
+ "timestamp": "2026-11-20T15:51:41+0500",
+ "note": "decode-only capacity: no inference, no RTSP",
+ "rows": [
+  {
+   "hw": "none",
+   "streams": 1,
+   "decoded_fps_per_stream_min": 226.3,
+   "decoded_fps_aggregate": 226.3,
+   "converted_fps_aggregate": 75.4,
+   "host_cpu_percent": 85.4
+  },
+  {
+   "hw": "none",
+   "streams": 4,
+   "decoded_fps_per_stream_min": 67.9,
+   "decoded_fps_aggregate": 276.2,
+   "converted_fps_aggregate": 92.1,
+   "host_cpu_percent": 99.9
+  },
+  {
+   "hw": "none",
+   "streams": 10,
+   "decoded_fps_per_stream_min": 24.7,
+   "decoded_fps_aggregate": 270.2,
+   "converted_fps_aggregate": 89.9,
+   "host_cpu_percent": 100.0
+  },
+  {
+   "hw": "cuda",
+   "streams": 1,
+   "decoded_fps_per_stream_min": 190.3,
+   "decoded_fps_aggregate": 190.3,
+   "converted_fps_aggregate": 63.4,
+   "host_cpu_percent": 43.8
+  },
+  {
+   "hw": "cuda",
+   "streams": 4,
+   "decoded_fps_per_stream_min": 51.3,
+   "decoded_fps_aggregate": 206.7,
+   "converted_fps_aggregate": 68.8,
+   "host_cpu_percent": 46.1
+  },
+  {
+   "hw": "cuda",
+   "streams": 10,
+   "decoded_fps_per_stream_min": 18.2,
+   "decoded_fps_aggregate": 193.9,
+   "converted_fps_aggregate": 64.6,
+   "host_cpu_percent": 45.5
+  }
+ ]
+}

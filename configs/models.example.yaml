@@ -13,6 +13,30 @@ ppe:
   half: true
   device: cuda:0
 ppe_class_map: {helmet: 0, head: 1}
+# Phase 3 (ADR-014): second detector for vest / gloves / goggles / boots + their "no_*" (bare region) classes.
+# Train: scripts/dataset/prepare_multippe_dataset.py + train_ppe_detector.py --install-as ppe_items_yolo26m.pt
+# (docs/ml/phase3-log.md). Delete/null = hard-hat-only mode.
+# items:
+#   weights: ppe_items_yolo26m.pt
+#   imgsz: 1280
+#   conf: 0.25
+#   half: true
+#   device: cuda:0
+items_class_map: {vest: 2, no_vest: 3, gloves: 4, no_gloves: 5, goggles: 6, no_goggles: 7, boots: 8, no_boots: 9}
+# The enforceable item catalogue: rules/presets/UI/teacher read this. Add an entry (merged over the built-ins
+# below) to enforce a new class - detector classes must exist in items_class_map; regions: head|eyes|torso|hands|feet.
+ppe_items:
+  hard_hat:    {present: helmet, absent: head, region: head, label: Hard hat, alert: "NO HARD HAT",
+                teacher_question: "a hard hat / safety helmet (bare head, cap, hood or hair only counts as NOT)"}
+  goggles:     {present: goggles, absent: no_goggles, region: eyes, width_ratio: [0.05, 0.7], label: Goggles,
+                alert: "NO GOGGLES", teacher_question: "safety goggles or safety glasses over the eyes"}
+  safety_vest: {present: vest, absent: no_vest, region: torso, width_ratio: [0.3, 1.4], label: Safety vest,
+                alert: "NO SAFETY VEST", teacher_question: "a high-visibility safety vest"}
+  gloves:      {present: gloves, absent: no_gloves, region: hands, width_ratio: [0.03, 0.6], label: Gloves,
+                alert: "NO GLOVES", teacher_question: "a protective work glove"}
+  safety_shoes: {present: boots, absent: no_boots, region: feet, width_ratio: [0.04, 0.8], label: Safety shoes,
+                 alert: "NO SAFETY SHOES",
+                 teacher_question: "a safety boot / protective work shoe (sandals, bare feet or trainers count as NOT)"}
 classifier:
   weights: head_cls_yolo26n.pt  # helmet / no_helmet head-crop classifier (cascade only, FR-DET-006)
   imgsz: 96

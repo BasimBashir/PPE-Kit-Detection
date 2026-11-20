@@ -89,6 +89,27 @@ def test_cameras_never_leak_credentials(client):
     assert client.delete("/api/v1/cameras/cam99", headers=admin).status_code == 204
 
 
+def test_operator_presets_create_apply_and_validate(client):
+    """Phase 3 (ADR-014): operators build their own presets from the item catalogue and apply them to a scope."""
+    admin = login(client)
+    items = {i["id"] for i in client.get("/api/v1/ppe-items", headers=admin).json()}
+    assert {"hard_hat", "safety_vest", "gloves", "goggles", "safety_shoes"} <= items
+    assert {p["name"] for p in client.get("/api/v1/presets", headers=admin).json()} >= {"construction", "welding"}
+    body = {"items": {"goggles": "mandatory", "gloves": "mandatory", "safety_vest": "secondary"}}
+    assert client.put("/api/v1/presets/grinding-bay", headers=admin, json=body).status_code == 200
+    assert client.put("/api/v1/presets/x", headers=admin, json={"items": {"earmuffs": "mandatory"}}).status_code == 422
+    assert client.put("/api/v1/presets/Bad Name", headers=admin, json=body).status_code == 422
+    rules = client.post("/api/v1/presets/grinding-bay/apply", headers=admin, json={"camera_id": "cam01"}).json()
+    by = {r["ppe_class"]: r for r in rules}
+    assert set(by) == {"goggles", "gloves", "safety_vest"} and all(r["camera_id"] == "cam01" for r in rules)
+    assert by["gloves"]["mandatory"] is True and by["safety_vest"]["mandatory"] is False
+    again = client.post("/api/v1/presets/grinding-bay/apply", headers=admin, json={"camera_id": "cam01"}).json()
+    assert [r["id"] for r in again] == [r["id"] for r in rules]  # idempotent: same rules updated, none duplicated
+    assert client.post("/api/v1/presets/grinding-bay/apply", headers=admin,
+                       json={"camera_id": "nope"}).status_code == 404
+    assert client.delete("/api/v1/presets/grinding-bay", headers=admin).status_code == 204
+
+
 def test_rules_validation_and_effective_seconds(client):
     admin = login(client)
     rules = client.get("/api/v1/rules", headers=admin).json()

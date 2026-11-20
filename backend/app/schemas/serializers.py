@@ -49,7 +49,8 @@ def rule_out(r: PPERule, target_fps: float) -> dict[str, Any]:
     elif tp["mode"] == "both":
         confirm_s = max(confirm_s, tp["min_duration_s"])
     return {"id": r.id, "name": r.name, "ppe_class": r.ppe_class, "camera_id": r.camera_id, "zone_id": r.zone_id,
-            "severity": r.severity, "enabled": r.enabled, "thresholds": r.thresholds, "temporal_policy": tp,
+            "severity": r.severity, "enabled": r.enabled, "mandatory": r.mandatory, "thresholds": r.thresholds,
+            "temporal_policy": tp,
             "effective_confirm_seconds": round(confirm_s, 2), "updated_at": iso(r.updated_at)}
 
 

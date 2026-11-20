@@ -11,10 +11,10 @@ rules:
     enabled: true
     thresholds:
       person_conf: 0.4
-      helmet_conf: 0.35
-      head_conf: 0.35
+      present_conf: 0.35
+      absent_conf: 0.35
       min_person_height_px: 60
-      min_head_px: 12
+      min_roi_px: 12
     temporal_policy:
       mode: count
       confirm_n: 12

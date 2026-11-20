@@ -18,12 +18,23 @@ from typing import Any, Literal, Protocol
 
 import httpx
 
-QUESTION_ID = "no_helmet"
-INSTRUCTIONS = (
-    "This is a crop of one person's head from a construction-site safety camera. Is the person NOT "
-    "wearing a hard hat / safety helmet (bare head, cap, hood or hair only)?"
-)
-STATE = "Head crop from a construction-site PPE camera; decide whether a hard hat is missing."
+from app.config.settings import PPE_ITEMS
+
+QUESTION_ID = "item_missing"
+# One yes/no question per PPE item (Phase 3): the crop is the body region the item belongs on; the item wording comes
+# from the configurable catalogue (PPEItem.teacher_question).
+REGION_TEXT = {"head": "one person's head", "eyes": "one person's face / eye area", "torso": "one person's torso",
+               "hands": "one person's hand", "feet": "one person's foot"}
+
+
+def instructions(ppe_class: str) -> str:
+    it = PPE_ITEMS[ppe_class]
+    return (f"This is a crop of {REGION_TEXT[it.region]} from an industrial-site safety camera. "
+            f"Is the person NOT wearing {it.teacher_question}?")
+
+
+def state(ppe_class: str) -> str:
+    return f"Crop from an industrial PPE camera; decide whether the {ppe_class.replace('_', ' ')} is missing."
 
 Kind = Literal["violation", "compliant"]
 Verdict = Literal["CONFIRMED", "LIKELY_FALSE_ALERT", "ESCALATED", "COMPLIANT"]
@@ -31,7 +42,7 @@ Verdict = Literal["CONFIRMED", "LIKELY_FALSE_ALERT", "ESCALATED", "COMPLIANT"]
 
 @dataclass
 class TeacherVerdict:
-    p_no_helmet: float  # probability that the person is NOT wearing a hard hat
+    p_missing: float  # probability that the person is NOT wearing the item
     latency_ms: float
     provider: str
     raw: dict[str, Any] = field(default_factory=dict)
@@ -40,7 +51,7 @@ class TeacherVerdict:
 class Teacher(Protocol):
     provider: str
 
-    async def review(self, crop_jpeg: bytes) -> TeacherVerdict: ...
+    async def review(self, crop_jpeg: bytes, ppe_class: str = "hard_hat") -> TeacherVerdict: ...
 
 
 def _prob(v: Any) -> float:
@@ -58,16 +69,16 @@ class _HttpTeacher:
     ):
         self.url, self.headers, self.timeout_s, self.transport = url, headers, timeout_s, transport
 
-    def build_body(self, crop_jpeg: bytes) -> dict[str, Any]:
+    def build_body(self, crop_jpeg: bytes, ppe_class: str) -> dict[str, Any]:
         raise NotImplementedError
 
     def parse(self, data: dict[str, Any]) -> float:
         raise NotImplementedError
 
-    async def review(self, crop_jpeg: bytes) -> TeacherVerdict:
+    async def review(self, crop_jpeg: bytes, ppe_class: str = "hard_hat") -> TeacherVerdict:
         t0 = time.perf_counter()
         async with httpx.AsyncClient(transport=self.transport, timeout=self.timeout_s) as c:
-            r = await c.post(self.url, json=self.build_body(crop_jpeg), headers=self.headers)
+            r = await c.post(self.url, json=self.build_body(crop_jpeg, ppe_class), headers=self.headers)
         r.raise_for_status()  # HTTPStatusError carries the status (429 => back off); the API key is in a header only
         data = r.json()
         return TeacherVerdict(self.parse(data), 1000 * (time.perf_counter() - t0), self.provider, data)
@@ -89,11 +100,11 @@ class GeminiDecisionTeacher(_HttpTeacher):
         super().__init__(f"{base_url.rstrip('/')}/decisions", {"x-goog-api-key": api_key}, timeout_s, transport)
         self.model = model
 
-    def build_body(self, crop_jpeg: bytes) -> dict[str, Any]:
+    def build_body(self, crop_jpeg: bytes, ppe_class: str) -> dict[str, Any]:
         return {
             "model": self.model,
             "input": [{"type": "image", "data": base64.b64encode(crop_jpeg).decode(), "mime_type": "image/jpeg"}],
-            "questions": {QUESTION_ID: {"type": "noul", "instructions": INSTRUCTIONS}},
+            "questions": {QUESTION_ID: {"type": "noul", "instructions": instructions(ppe_class)}},
         }
 
     def parse(self, data: dict[str, Any]) -> float:
@@ -112,12 +123,12 @@ class SystemOneTeacher(_HttpTeacher):
         super().__init__(f"{base_url.rstrip('/')}/v1/systemone", {}, timeout_s, transport)
         self.model = model
 
-    def build_body(self, crop_jpeg: bytes) -> dict[str, Any]:
+    def build_body(self, crop_jpeg: bytes, ppe_class: str) -> dict[str, Any]:
         return {
             "model": self.model,
-            "state": STATE,
+            "state": state(ppe_class),
             "images": [{"data": base64.b64encode(crop_jpeg).decode(), "mime_type": "image/jpeg"}],
-            "questions": {QUESTION_ID: {"type": "noul", "instructions": INSTRUCTIONS}},
+            "questions": {QUESTION_ID: {"type": "noul", "instructions": instructions(ppe_class)}},
         }
 
     def parse(self, data: dict[str, Any]) -> float:
@@ -132,7 +143,7 @@ class FakeTeacher:
     def __init__(self, p: float | Callable[[bytes], float] = 0.5, fail: bool = False, delay_s: float = 0.0):
         self.p, self.fail, self.delay_s, self.calls = p, fail, delay_s, 0
 
-    async def review(self, crop_jpeg: bytes) -> TeacherVerdict:
+    async def review(self, crop_jpeg: bytes, ppe_class: str = "hard_hat") -> TeacherVerdict:
         self.calls += 1
         if self.delay_s:
             await asyncio.sleep(self.delay_s)
@@ -146,7 +157,7 @@ class FakeTeacher:
 
 
 def fuse(p_teacher: float, p_model: float, w: float) -> float:
-    """fused = w * p_teacher + (1 - w) * p_model; all probabilities are P(no helmet)."""
+    """fused = w * p_teacher + (1 - w) * p_model; all probabilities are P(item missing)."""
     return w * p_teacher + (1.0 - w) * p_model
 
 
@@ -159,7 +170,7 @@ def decide(kind: Kind, fused: float, escalate_threshold: float, false_alert_thre
 
 
 def agrees(kind: Kind, p_teacher: float) -> bool:
-    """Teacher alone (p >= 0.5 => no helmet) agrees with the on-site decision."""
+    """Teacher alone (p >= 0.5 => item missing) agrees with the on-site decision."""
     return (p_teacher >= 0.5) == (kind == "violation")
 
 

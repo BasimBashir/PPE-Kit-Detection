@@ -32,14 +32,17 @@ export interface CameraTestResult {
 
 export interface Zone { id: string; camera_id: string; name: string; kind: "monitor" | "ignore" | "privacy"; polygon: [number, number][]; enabled: boolean }
 
-export interface Thresholds { person_conf: number; helmet_conf: number; head_conf: number; min_person_height_px: number; min_head_px: number }
+export interface Thresholds { person_conf: number; present_conf: number; absent_conf: number; min_person_height_px: number; min_roi_px: number }
 export interface TemporalPolicy {
   mode: "count" | "duration" | "both"; confirm_n: number; confirm_m: number; min_duration_s: number; suspect_n: number;
   compliant_n: number; compliant_m: number; clear_n: number; clear_m: number; unknown_ratio: number; window: number;
 }
+export const PPE_LABEL: Record<string, string> = { hard_hat: "Hard hat", safety_vest: "Safety vest", gloves: "Gloves", goggles: "Goggles", safety_shoes: "Safety shoes" };
+export interface PPEItemInfo { id: string; label: string; region: "head" | "eyes" | "torso" | "hands" | "feet" }
+export interface Preset { name: string; items: Record<string, "mandatory" | "secondary"> }
 export interface Rule {
-  id: string; name: string; ppe_class: "hard_hat"; camera_id: string | null; zone_id: string | null;
-  severity: "low" | "medium" | "high"; enabled: boolean; thresholds: Thresholds; temporal_policy: TemporalPolicy;
+  id: string; name: string; ppe_class: string; camera_id: string | null; zone_id: string | null;
+  severity: "low" | "medium" | "high"; enabled: boolean; mandatory: boolean; thresholds: Thresholds; temporal_policy: TemporalPolicy;
   effective_confirm_seconds: number; updated_at: string;
 }
 
@@ -48,7 +51,7 @@ export type Feedback = "TRUE_POSITIVE" | "FALSE_POSITIVE";
 export interface PPEEvent {
   id: string; camera_id: string; camera_name: string; track_id: number; zone_id: string | null; rule_id: string;
   episode_id: string; status: EventStatus; severity: string; reason: string;
-  confidence_summary: { no_helmet_votes: number; decisive_votes: number; mean_confidence: number; roi_source: string; classifier_used: boolean; raised_by?: "teacher_review" };
+  confidence_summary: { no_helmet_votes: number; decisive_votes: number; mean_confidence: number; roi_source: string; classifier_used: boolean; raised_by?: "teacher_review"; ppe_class?: string; secondary?: true };
   first_seen_at: string; confirmed_at: string; frame_captured_at: string; persisted_at: string; last_seen_at: string;
   episode_ended_at: string | null; reconfirm_count: number; has_evidence: boolean; evidence_error: string | null;
   model_versions: Record<string, string>; feedback: Feedback | null; feedback_note: string | null;
@@ -83,8 +86,8 @@ export interface MetricsSummary {
 }
 export interface SettingsOut { evidence_retention_days: number; evidence_min_free_bytes: number }
 
-export interface OverlayTrack { track_id: number; box: number[]; ppe_state: string; outcome: string; head_roi: number[] | null; helmet_box: number[] | null; head_box: number[] | null }
-export interface OverlayDet { cls: "person" | "helmet" | "head"; conf: number; box: number[] }
+export interface OverlayTrack { track_id: number; box: number[]; ppe_state: string; outcome: "PRESENT" | "ABSENT" | "UNCERTAIN"; ppe_class: string; item_roi: number[] | null; present_box: number[] | null; absent_box: number[] | null }
+export interface OverlayDet { cls: string; conf: number; box: number[] }
 export interface FrameOut { frame_id: number; captured_at: string; width: number; height: number; image_b64: string; tracks: OverlayTrack[]; detections: OverlayDet[] }
 
 export type WsMessage =

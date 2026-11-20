@@ -30,7 +30,7 @@ from app.evidence.annotate import annotate_violation
 from app.evidence.store import EvidenceStore
 from app.models import AlertOutbox, Event
 from app.observability import metrics as m
-from app.ppe.association import Associator
+from app.ppe.association import ITEMS, Associator
 from app.ppe.geometry import iou
 from app.ppe.types import Box
 
@@ -64,6 +64,9 @@ class ConfirmedViolation:
     confirmed_at: float  # wall
     model_versions: dict[str, str] = field(default_factory=dict)
     camera_name: str = ""
+    item_roi: Box | None = None  # region that showed the item missing (evidence box + teacher crop); head ROI if None
+    ppe_class: str = "hard_hat"
+    mandatory: bool = True  # False = secondary rule: event recorded, no alert delivered (no outbox rows)
 
 
 @dataclass
@@ -139,10 +142,11 @@ class EventService(threading.Thread):
         self._put(("cleared", (camera_id, track_id, rule_id, when)))
 
     def submit_teacher_sample(self, camera_id: str, track_id: int, rule_id: str, zone_id: str | None, severity: str,
-                              person_box: Box, crop: np.ndarray, p_model: float, captured_at: float) -> None:
+                              person_box: Box, crop: np.ndarray, p_model: float, captured_at: float,
+                              ppe_class: str = "hard_hat") -> None:
         """A track judged COMPLIANT, sampled for teacher review (that is where dangerous misses hide)."""
         self._put(("sample", ("compliant", None, camera_id, track_id, rule_id, zone_id, severity, person_box, crop,
-                              p_model, captured_at)), droppable=True)
+                              p_model, captured_at, ppe_class)), droppable=True)
 
     def _put(self, item: tuple[str, Any], droppable: bool = False) -> None:
         try:
@@ -290,8 +294,10 @@ class EventService(threading.Thread):
     def _create(self, v: ConfirmedViolation, key: tuple[str, int, str]) -> None:
         event_id = uuid.uuid4()
         episode_id = f"{self.run_id}:{v.camera_id}:{v.track_id}:{v.episode_seq}"
-        label = f"NO HARD HAT  {v.camera_id}  track {v.track_id}"
-        img = annotate_violation(v.image, v.person_box, v.head_roi, label)
+        roi = v.item_roi or v.head_roi
+        alert = ITEMS[v.ppe_class].alert if v.ppe_class in ITEMS else v.ppe_class
+        label = f"{alert}  {v.camera_id}  track {v.track_id}"
+        img = annotate_violation(v.image, v.person_box, roi, label)
         rel, err = self.evidence.save(event_id, img, v.frame_captured_at)  # before DB so spooled events keep it
         event = {
             "id": str(event_id),
@@ -300,14 +306,15 @@ class EventService(threading.Thread):
             "episode_id": episode_id, "status": "OPEN", "severity": v.severity, "reason": v.reason,
             "confidence_summary": {"no_helmet_votes": v.no_helmet_votes, "decisive_votes": v.decisive_votes,
                                    "mean_confidence": round(v.mean_confidence, 4), "roi_source": v.roi_source,
-                                   "classifier_used": v.classifier_used},
+                                   "classifier_used": v.classifier_used, "ppe_class": v.ppe_class,
+                                   **({} if v.mandatory else {"secondary": True})},
             "first_seen_at": ts(v.first_seen_at).isoformat(), "confirmed_at": ts(v.confirmed_at).isoformat(),
             "frame_captured_at": ts(v.frame_captured_at).isoformat(),
             "last_seen_at": ts(v.confirmed_at).isoformat(), "last_box": list(v.person_box),
             "evidence_path": rel, "evidence_error": err, "model_versions": v.model_versions,
             "reconfirm_count": 0,
         }
-        payload = {"event": event, "channels": self.channels}
+        payload = {"event": event, "channels": self.channels if v.mandatory else []}  # secondary: recorded, not alerted
         a = _Active(event_id, v.rule_id, v.person_box, time.monotonic(), v.head_roi)
         self.active[key] = a
         self.recent.setdefault(v.camera_id, deque(maxlen=32)).append(a)
@@ -322,10 +329,10 @@ class EventService(threading.Thread):
             m.ppe_event_confirmation_latency_seconds.observe(max(0.0, persisted - v.frame_captured_at))
             self.notify({"type": "event", "action": "created", "event_id": str(event_id),
                          "camera_id": v.camera_id, "persisted_at": persisted})
-            if self.teacher_enabled and v.head_roi is not None:
+            if self.teacher_enabled and roi is not None:
                 self._teacher_candidate(("violation", event_id, v.camera_id, v.track_id, v.rule_id, v.zone_id,
-                                         v.severity, v.person_box, Associator._crop(v.image, v.head_roi),
-                                         v.mean_confidence, v.frame_captured_at))
+                                         v.severity, v.person_box, Associator._crop(v.image, roi),
+                                         v.mean_confidence, v.frame_captured_at, v.ppe_class))
         except DB_DOWN as e:
             self._db_down()
             log.warning("database unavailable (%s) - event %s spooled", type(e).__name__, event_id)
@@ -336,11 +343,12 @@ class EventService(threading.Thread):
 
     def _teacher_candidate(self, data: tuple) -> None:
         """Save the (privacy-masked) head crop and hand it to the API's teacher reviewer. Off the alert path."""
-        kind, event_id, camera_id, track_id, rule_id, zone_id, severity, box, crop, p_model, captured_at = data
+        kind, event_id, camera_id, track_id, rule_id, zone_id, severity, box, crop, p_model, captured_at, item = data
         rel, _ = self.evidence.save(uuid.uuid4(), crop, captured_at, prefix="teacher/")
         if rel:
             self.notify({"type": "teacher_candidate", "kind": kind, "event_id": event_id and str(event_id),
                          "camera_id": camera_id, "track_id": track_id, "rule_id": rule_id, "zone_id": zone_id,
+                         "ppe_class": item,
                          "severity": severity, "person_box": list(box), "crop_path": rel,
                          "p_model": round(float(p_model), 4), "captured_at": captured_at})
 
