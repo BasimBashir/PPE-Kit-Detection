@@ -45,3 +45,13 @@ classifier:
   device: cuda:0
 classifier_uncertain_below: 0.75
 cascade_skip_ppe_without_person: true
+
+
+# Phase 4 (ADR-015). phone: COCO detector ("cell phone" = class 67); unset = phone rules stay UNCERTAIN.
+# phone:
+#   weights: yolo26s.pt
+#   imgsz: 1280
+#   conf: 0.25
+#   half: true
+#   device: cuda:0
+# fight_weights: fight_gru.pt   # scripts/ml/train_fight.py; MVP weights - see docs/model-and-data-licenses.md

@@ -945,6 +945,7 @@ dependencies = [
     { name = "sqlalchemy" },
     { name = "torch" },
     { name = "torchvision" },
+    { name = "tzdata" },
     { name = "ultralytics" },
     { name = "uvicorn", extra = ["standard"] },
 ]
@@ -977,6 +978,7 @@ requires-dist = [
     { name = "sqlalchemy", specifier = "==2.1.6" },
     { name = "torch", specifier = "==2.14.1", index = "https://download.pytorch.org/whl/cu130" },
     { name = "torchvision", index = "https://download.pytorch.org/whl/cu130" },
+    { name = "tzdata", specifier = ">=2025.2" },
     { name = "ultralytics", specifier = "==8.4.198" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.35" },
 ]

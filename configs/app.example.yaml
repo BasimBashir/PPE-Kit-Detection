@@ -77,3 +77,12 @@ teacher:              # asynchronous review of head crops by an external decisio
   compliant_sample_rate: 0.05    # share of tracks turning COMPLIANT that are reviewed
   max_reviews_per_minute: 30
   timeout_s: 30       # live gemini-decision-1 p95 is ~8 s
+
+
+# Phase 4 behaviour checks (ADR-015) - engineering constants; operator knobs are on each rule in the UI.
+# behaviour:
+#   fall_window_s: 2.0      # upright -> lying faster than this = a fall (slower = lying down on purpose)
+#   drop_frac: 0.25         # hips must drop this share of the standing height
+#   idle_window_s: 10.0     # stalling: stillness measured over this window
+#   idle_max_range: 0.08    # ... every keypoint within this many body heights
+#   fight_pair_dist: 1.2    # people closer than this (body heights) are scored as a pair
