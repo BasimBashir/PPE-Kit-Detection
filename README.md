@@ -28,7 +28,7 @@ The script is **idempotent** — every step is skipped when already done:
 3. `docker compose up -d` — PostgreSQL, MediaMTX (RTSP), Toxiproxy (fault injection), Prometheus, Grafana; waits for PostgreSQL healthy
 4. Backend dependencies (`uv sync`)
 5. Demo clips → `data/streams/` (Pexels stock footage via `scripts/demo/fetch_demo_videos.py`)
-6. Model weights in `models/`: already in the clone via Git LFS (`yolo26s-pose.pt`, `ppe_yolo26s.pt`, `head_cls_yolo26n.pt`); if missing, downloaded from `--weights-url` (a `.zip` with the three files) or trained from the CC0 dataset (~30–40 min on RTX 3090)
+6. Model weights in `models/`: already in the clone via Git LFS (`yolo26s-pose.pt`, `ppe_yolo26s.pt`, `head_cls_yolo26n.pt`, `ppe_items_yolo26m.pt`); if missing, downloaded from `--weights-url` (a `.zip` with the four files) or trained from the CC0 dataset (~30–40 min on RTX 3090)
 7. Dashboard build (`npm ci && npm run build`)
 8. Start API on **http://127.0.0.1:8000** — the app then starts the RTSP simulator itself
 
@@ -188,6 +188,8 @@ make down         # docker compose down
 | Throughput 10 × 2 / 10 × 10 | 20.1 / 20; 81.5 / 100 (not sustained) | `docs/benchmarks/results.md` |
 | Saturation (10 × 30 requested) | 72.6 FPS (52.5 before classifier batching) | `docs/benchmarks/results.md` |
 | Detector test split | helmet mAP50 0.964, head mAP50 0.937 | `docs/ml/ppe_yolo26s_eval.json` |
+| Multi-PPE detector (Phase 3) | items mAP50 0.851 on unseen val (vest 0.97, goggles 0.98); cross-dataset gap flagged | `docs/ml/multippe_C_cppe_hb_m1280_eval.json` |
+| 4K streams (Phase 3) | 10 x 4K@25fps: CPU decode 92% host -> NVDEC 57%, 20.7 processed fps/worker; sizing for 10-50 cams | `docs/benchmarks/phase3-4k.md` |
 | Frozen vs full fine-tune | no gain (0.964 vs 0.964 mAP50; mAP50-95 0.631 vs 0.640) | `docs/ml/*freeze*` |
 | Head classifier | top-1 0.973 (9.2 % bare heads → "helmet") | `docs/ml/head_classifier_eval.json` |
 | Event → dashboard latency | p50 24 ms, p95 52 ms, max 240 ms (195 events) | `docs/benchmarks/ui_latency.md` |
@@ -197,9 +199,9 @@ make down         # docker compose down
 | Teacher review (Gemini, live) | fused AUROC 0.972 vs 0.966 classifier-alone; 20/26 of our missed violations escalated; **0 alerts suppressed**; p95 7.9 s (async) | `docs/ml/teacher_eval.md` |
 | Last-layer fusion | logistic beats Laya on every metric (AUROC 0.9968 vs 0.9928); misses 4.7 % → 3.2 % at ≤ 2 % FAR | `docs/ml/fusion_eval.md` |
 | Distillation flywheel | runs end to end (export → retrain → holdout eval); no measured gain at 22–230 public labels — controls overlap | `docs/ml/distill_eval.md` |
-| Tests | backend 98 passed (unit + integration + GPU); frontend 16 passed; ruff + tsc clean | `docs/testing/test-report.md` |
+| Tests | backend 116 passed (unit + integration + GPU); frontend 16 passed; ruff + tsc clean | `docs/testing/test-report.md` |
 
-**These are desktop-GPU results — not edge-device results.** Next steps (not implemented): TensorRT FP16 engines, NVDEC decode, moving tracking/association off the GPU thread, DeepStream for the edge.
+**These are desktop-GPU results — not edge-device results.** Followed up (measured, see the reports): classifier batching, TensorRT FP16, NVDEC probe, CPU-only profile; Phase 3 adds 4K streams + NVDEC (`docs/benchmarks/phase3-4k.md`). Still not done: DeepStream/on-device edge.
 
 See the full analysis: [docs/benchmarks/README.md](docs/benchmarks/README.md)
 

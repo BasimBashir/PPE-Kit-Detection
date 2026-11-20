@@ -1,12 +1,13 @@
 # Test report
 
-**Run date:** 2026-11-18 (Phase 2) · **Host:** Windows 11, i5-12400F, RTX 3090, Python 3.12.10, Node 24.16 ·
+**Run date:** 2026-11-20 (Phase 3; Phase 2 report below) · **Host:** Windows 11, i5-12400F, RTX 3090, Python 3.12.10, Node 24.16 ·
 **Commit state:** local runs; GitHub Actions CI re-runs backend tests (minus the GPU test), ruff, and the frontend type-check/tests/build on every push to `main` (promtool, alembic check and the live benchmarks are local only).
 
 ## Results (exact commands, actual output)
 | Suite | Command | Result |
 |---|---|---|
-| Backend unit + integration + GPU | `cd backend && uv run pytest tests -q` (Docker services up) | **98 passed** in 28.0 s |
+| Backend unit + integration | `cd backend && uv run pytest tests -q -m "not gpu"` (Docker services up) | **115 passed** in 22 s |
+| Backend GPU (real frames through the cascade incl. the Phase 3 items stage) | `uv run pytest tests -q -m gpu` | **1 passed** |
 | Backend lint | `uv run ruff check backend/app backend/tests scripts` | clean |
 | Frontend types | `cd frontend && npx tsc --noEmit -p .` | clean |
 | Frontend unit | `npx vitest run` | **16 passed** |
@@ -38,6 +39,13 @@
 | teacher review end-to-end (escalation visible; false-alert tag issues no UPDATE/DELETE) | `integration/test_teacher_review.py` (3 tests) |
 | camera-source ingest loop (flow, backoff/offline/recovery, watchdog) | `test_camera_source.py` (3 tests, local files) |
 | Users admin page (create, self-lockout guard) | `app.test.tsx` (frontend) |
+| Phase 3: body-region association (bare hand beats gloved, ground vest not credited, no wrist keypoints = UNCERTAIN, feet cut off = UNCERTAIN, other items ignored) | `test_multi_ppe.py` (9 tests) |
+| Phase 3: config-only new class end to end (rule + association + teacher question) | `test_multi_ppe.py::test_new_class_is_config_only` |
+| Phase 3: network sharding parse + deterministic camera split | `test_multi_ppe.py::test_shard_parsing_and_camera_split` |
+| Phase 3: site presets validate | `test_multi_ppe.py::test_site_presets_validate` |
+| Phase 3: zone polygons are resolution-independent (SD/FHD/4K foot-point + mask fraction) | `test_ppe_logic.py::test_zone_polygon_is_resolution_independent` |
+| Phase 3: secondary rule records the event with NO outbox row (no alert delivery) | `integration/test_persistence.py::test_secondary_rule_records_event_without_alert_delivery` |
+| Phase 3: preset API flow (create, apply idempotent, 422s, delete) | `integration/test_api.py::test_operator_presets_create_apply_and_validate` |
 
 ## Integration (spec 19.2)
 Video → detection pipeline on real frames (GPU test), DB persistence, outbox retry/backoff/FAILED, REST camera/event
@@ -46,6 +54,14 @@ outage, restart persistence (migrations + seed idempotency), teacher review agai
 the normal event path; LIKELY_FALSE_ALERT verified to issue no UPDATE/DELETE against the original event). RTSP ingest
 is exercised end-to-end by the live fault and load campaigns plus the file-based camera-source unit tests (a live
 RTSP pytest remains a gap).
+
+## Live smoke test (2026-11-20, Phase 3)
+Full app on 10 simulated 4K@25fps cameras: startup seed reports the two presets; `POST /api/v1/presets/construction/apply`
+creates 5 rules (3 mandatory, 2 secondary) and the running worker hot-reloads them ("rules reloaded: 6 enabled rules");
+dual-detector inference on 3840x2160 streams produces OPEN hard-hat events with evidence and the live overlay carries
+per-track `ppe_class` + `item_roi`; the gloves rule correctly stays UNKNOWN (no wrist keypoints on wide factory clips -
+never a false alert). Vest/shoes/goggles confirmations did not fire on this stock footage (footage limitation;
+accuracy gap documented in docs/ml/phase3-log.md).
 
 ## Live smoke test (2026-11-18, Phase 2)
 Complete app started with 10/10 simulated cameras online: teacher review verified with the deterministic fake
@@ -70,6 +86,6 @@ normal runs afterwards.
 | benchmark | per-frame classifier calls capped throughput at ~53 FPS | one batched call per inference batch → 72.6 FPS |
 
 ## Not covered / known gaps
-Frontend end-to-end browser test (Playwright) not implemented. The dashboard was exercised through its API and
+Frontend end-to-end browser test (Playwright) not implemented; the Phase 3 zone drawer and presets card were verified by tsc + vitest + API-level integration tests, not a scripted browser run. The dashboard was exercised through its API and
 WebSocket contracts (integration tests) and unit tests; visual verification status is recorded in BUILD_STATUS.md.
 No labelled site footage → no system-level recall / false-alarm rate. CPU-only profile not tested.

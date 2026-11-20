@@ -28,4 +28,4 @@ PostgreSQL 17 (PostgreSQL License), MediaMTX 1.21.3 (MIT), Toxiproxy 2.13.0 (MIT
 Grafana 13.2.5 (AGPL-3.0).
 
 ## Media
-Demo clips: Pexels License (downloaded by script, not redistributed). Training data: Hard Hat Workers, CC0-1.0.
+Demo clips: Pexels License (downloaded by script, not redistributed). Training data: Hard Hat Workers CC0-1.0; Ultralytics Construction-PPE and HB1204/PPE_Detection CC BY 4.0 (attribution in docs/ml/data-card.md).
