@@ -6,6 +6,8 @@ Labels CSV: video,start,end,label (seconds). Rows labelled 'fall' are fall event
 processed. A fall counts as detected when the rule CONFIRMS within [start, end + hold + 5 s]; every other
 confirmation is a false alarm (also per hour of processed footage). 'missed_seen_lying_without_event' counts missed
 falls where a lying person was seen without a fall event (ID switch mid-fall, or a fall slower than fall_window_s).
+A fall is 'confirmable' when the video runs >= hold past its end; 'confirmable_recall' is the honest confirmation
+recall (short clips cannot complete the hold). 'onset_recall' counts any 'down_after_fall' observation in the window.
 """
 
 from __future__ import annotations
@@ -35,7 +37,7 @@ def run_video(path: str, fps: float, pose, args):
     fsm = PPEStateMachine("eval", BEHAVIOURS["fall"].policy, tcfg.track_expiry_s)
     cap = cv2.VideoCapture(path)
     vfps = cap.get(cv2.CAP_PROP_FPS) or 30.0
-    confirms, lying, i, next_t, t = [], [], 0, 0.0, 0.0
+    confirms, lying, onset, i, next_t, t = [], [], [], 0, 0.0, 0.0
     while True:
         ok, img = cap.read()
         if not ok:
@@ -54,9 +56,10 @@ def run_video(path: str, fps: float, pose, args):
         frame = Frame("eval", i, img, None, t, t)
         obs = fall.assess_deferred(tracker.update(dets, frame), [], frame)
         lying += [t for o in obs if o.reason == "horizontal_without_fall"]
+        onset += [t for o in obs if o.reason == "down_after_fall"]
         confirms += [tr.ts for tr in fsm.update(obs, t) + fsm.expire(t) if tr.new is PPEState.CONFIRMED_NON_COMPLIANT]
     cap.release()
-    return confirms, lying, t
+    return confirms, lying, onset, t
 
 
 def main() -> None:
@@ -81,12 +84,15 @@ def main() -> None:
                 falls[row["video"]].append((float(row["start"]), float(row["end"])))
     videos = sorted(falls)[: args.limit or None]
     pose = YOLO(args.weights)
-    tp = fn = fp = seen_lying = 0
+    tp = fn = fp = seen_lying = conf_falls = conf_tp = onset_hits = 0
     seconds = 0.0
     for n, v in enumerate(videos, 1):
-        confirms, lying, dur = run_video(v, args.fps, pose, args)
+        confirms, lying, onset, dur = run_video(v, args.fps, pose, args)
         used: set[float] = set()
         for s, e in falls[v]:
+            confirmable = dur - e >= hold
+            conf_falls += confirmable
+            onset_hits += any(s <= x <= e + hold + 5.0 for x in onset)
             hit = next((c for c in confirms if s <= c <= e + hold + 5.0 and c not in used), None)
             if hit is None:
                 fn += 1
@@ -94,6 +100,7 @@ def main() -> None:
             else:
                 used.add(hit)
                 tp += 1
+                conf_tp += confirmable
         fp += sum(1 for c in confirms if c not in used)
         seconds += dur
         if n % 50 == 0:
@@ -112,6 +119,12 @@ def main() -> None:
         "hours": round(seconds / 3600, 3),
         "false_alarms_per_hour": round(fp / max(seconds / 3600, 1e-9), 2),
         "missed_seen_lying_without_event": seen_lying,
+        "confirmable_falls": conf_falls,
+        "confirmable_tp": conf_tp,
+        "confirmable_recall": round(conf_tp / max(conf_falls, 1), 4),
+        "short_tail_falls": tp + fn - conf_falls,
+        "onset_detected": onset_hits,
+        "onset_recall": round(onset_hits / max(tp + fn, 1), 4),
         "fps": args.fps,
         "weights": Path(args.weights).name,
         "hold_s": hold,
