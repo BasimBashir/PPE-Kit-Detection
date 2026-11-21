@@ -1,7 +1,7 @@
 // Typed REST client: bearer auth from sessionStorage, structured error parsing (FR-API-004).
 import type {
   Camera, CameraCreate, CameraTestResult, CameraUpdate, EventDetail, FrameOut, MetricsSummary, Page, PPEEvent,
-  PPEItemInfo, Preset, Role, Rule, SettingsOut, TemporalPolicy, Thresholds, User, Zone,
+  PPEItemInfo, Preset, Role, Rule, Schedule, SettingsOut, TemporalPolicy, Thresholds, User, Zone,
 } from "../types/api";
 
 const TOKEN_KEY = "ppe.token";
@@ -93,7 +93,7 @@ export const api = {
   createZone: (cam: string, z: Omit<Zone, "camera_id">) => post<Zone>(`/api/v1/cameras/${cam}/zones`, z),
   deleteZone: (id: string) => json<void>(`/api/v1/zones/${id}`, { method: "DELETE" }),
   rules: () => json<Rule[]>("/api/v1/rules"),
-  patchRule: (id: string, b: { thresholds?: Thresholds; temporal_policy?: TemporalPolicy; enabled?: boolean; mandatory?: boolean; severity?: string }) =>
+  patchRule: (id: string, b: { thresholds?: Thresholds; temporal_policy?: TemporalPolicy; enabled?: boolean; mandatory?: boolean; severity?: string; schedule?: Schedule | null }) =>
     patch<Rule>(`/api/v1/rules/${id}`, b),
   createRule: (b: Omit<Rule, "thresholds" | "temporal_policy" | "effective_confirm_seconds" | "updated_at">) => post<Rule>("/api/v1/rules", b),
   ppeItems: () => json<PPEItemInfo[]>("/api/v1/ppe-items"),

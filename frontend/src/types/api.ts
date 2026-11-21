@@ -37,11 +37,16 @@ export interface TemporalPolicy {
   mode: "count" | "duration" | "both"; confirm_n: number; confirm_m: number; min_duration_s: number; suspect_n: number;
   compliant_n: number; compliant_m: number; clear_n: number; clear_m: number; unknown_ratio: number; window: number;
 }
-export const PPE_LABEL: Record<string, string> = { hard_hat: "Hard hat", safety_vest: "Safety vest", gloves: "Gloves", goggles: "Goggles", safety_shoes: "Safety shoes" };
-export interface PPEItemInfo { id: string; label: string; region: "head" | "eyes" | "torso" | "hands" | "feet" }
+export const PPE_LABEL: Record<string, string> = {
+  hard_hat: "Hard hat", safety_vest: "Safety vest", gloves: "Gloves", goggles: "Goggles", safety_shoes: "Safety shoes",
+  fall: "Fall", fight: "Fighting", phone: "Phone use", stalling: "Stalling work",
+};
+export const BEHAVIOUR_IDS = new Set(["fall", "fight", "phone", "stalling"]);
+export interface PPEItemInfo { id: string; label: string; region: "head" | "eyes" | "torso" | "hands" | "feet" | null; kind: "ppe" | "behaviour" }
+export interface Schedule { tz: string; days: number[]; windows: string[] }
 export interface Preset { name: string; items: Record<string, "mandatory" | "secondary"> }
 export interface Rule {
-  id: string; name: string; ppe_class: string; camera_id: string | null; zone_id: string | null;
+  id: string; name: string; ppe_class: string; camera_id: string | null; zone_id: string | null; schedule: Schedule | null;
   severity: "low" | "medium" | "high"; enabled: boolean; mandatory: boolean; thresholds: Thresholds; temporal_policy: TemporalPolicy;
   effective_confirm_seconds: number; updated_at: string;
 }

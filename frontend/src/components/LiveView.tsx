@@ -14,6 +14,7 @@ const STATE_SHORT: Record<string, string> = {
   COMPLIANT: "OK", CLEARED: "CLEARED", SUSPECTED_NON_COMPLIANT: "SUSPECT", UNKNOWN: "?",
 };
 const ITEM_SHORT: Record<string, string> = { hard_hat: "HAT", safety_vest: "VEST", gloves: "GLOVES", goggles: "GOGGLES", safety_shoes: "SHOES" };
+const BEHAVIOUR_SHORT: Record<string, string> = { fall: "PERSON DOWN", fight: "FIGHT", phone: "PHONE", stalling: "STALLING" };
 
 function draw(ctx: CanvasRenderingContext2D, f: FrameOut) {
   ctx.clearRect(0, 0, f.width, f.height);
@@ -33,7 +34,7 @@ function draw(ctx: CanvasRenderingContext2D, f: FrameOut) {
     for (const [b, col] of [[t.present_box, "#3987e5"], [t.absent_box, "#ec835a"]] as const) {
       if (b) { ctx.strokeStyle = col; ctx.lineWidth = 1; ctx.strokeRect(b[0], b[1], b[2] - b[0], b[3] - b[1]); ctx.lineWidth = 1.5; }
     }
-    const label = `#${t.track_id} ${t.ppe_state === "CONFIRMED_NON_COMPLIANT" ? `NO ${ITEM_SHORT[t.ppe_class] ?? t.ppe_class.toUpperCase()}` : STATE_SHORT[t.ppe_state] ?? t.ppe_state}`;
+    const label = `#${t.track_id} ${t.ppe_state === "CONFIRMED_NON_COMPLIANT" ? (BEHAVIOUR_SHORT[t.ppe_class] ?? `NO ${ITEM_SHORT[t.ppe_class] ?? t.ppe_class.toUpperCase()}`) : STATE_SHORT[t.ppe_state] ?? t.ppe_state}`;
     const w = ctx.measureText(label).width + 6;
     const ly = y1 - 15 >= 0 ? y1 - 15 : y2 + 1; // above the box, or below if clipped - never over the head
     ctx.fillStyle = "rgba(10,10,10,0.75)";
