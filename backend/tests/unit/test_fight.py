@@ -27,11 +27,11 @@ class Stub:
         return np.full(len(x), self.prob, np.float32)
 
 
-def run(assessor, people, seconds=1.2, dt=0.2):
+def run(assessor, people, seconds=1.2, dt=0.2, conf=None):
     out = []
     for i in range(int(seconds / dt) + 1):
         t = i * dt
-        persons = [TrackedPerson(tid, box, 0.9, kps(box[0] - 400)) for tid, box in people]
+        persons = [TrackedPerson(tid, box, (conf or {}).get(tid, 0.9), kps(box[0] - 400)) for tid, box in people]
         out = assessor.assess_deferred(persons, [], Frame("cam01", i, IMG, None, t, t))
     return out
 
@@ -66,6 +66,14 @@ def test_assessor_outcomes():
     assert {o.reason for o in early} == {"warming_up"}
     none = run(FightAssessor(cfg, t, None), [(1, A), (2, B)])
     assert {o.reason for o in none} == {"fight_model_missing"} and none[0].outcome is Outcome.UNCERTAIN
+
+
+def test_low_confidence_partner_means_cant_tell_not_alone():
+    # grappling often drops one person's detection conf; the other must not be reported as safely alone
+    obs = run(FightAssessor(BehaviourConfig(), RuleThresholds(absent_conf=0.7), Stub(0.9)), [(1, A), (2, B)],
+              conf={2: 0.1})
+    assert obs[0].outcome is Outcome.UNCERTAIN and obs[0].reason == "warming_up"
+    assert obs[1].outcome is Outcome.UNCERTAIN and obs[1].reason == "not_assessable:low_person_conf"
 
 
 def test_model_checkpoint_round_trip(tmp_path):

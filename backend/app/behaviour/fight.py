@@ -75,10 +75,14 @@ class PairSequencer:
             out.append(pair_features(sa[2], sb[2], sa[1], sb[1]))
         return np.stack(out)
 
-    def update(self, persons: list[TrackedPerson],
-               now: float) -> tuple[set[int], list[tuple[tuple[int, int], np.ndarray]]]:
-        """Record persons; return (track ids with a nearby person, scorable (pair, sequence) items)."""
+    def update(self, persons: list[TrackedPerson], now: float,
+               eligible: set[int] | None = None) -> tuple[set[int], list[tuple[tuple[int, int], np.ndarray]]]:
+        """Record persons; return (track ids with a nearby person, scorable (pair, sequence) items).
+        Nearness counts every person; only pairs where both ids are in `eligible` (default: all) are recorded/scored."""
+        ok = {p.track_id for p in persons} if eligible is None else eligible
         for p in persons:
+            if p.track_id not in ok:
+                continue
             h = self.hist.setdefault(p.track_id, deque())
             h.append((now, p.box, p.keypoints))
             while now - h[0][0] > self.span + 1.0:
@@ -93,6 +97,8 @@ class PairSequencer:
                 if d > self.pair_dist * mean_h:
                     continue
                 near |= {a.track_id, b.track_id}
+                if a.track_id not in ok or b.track_id not in ok:
+                    continue
                 seq = self._sequence(a.track_id, b.track_id, now)
                 if seq is not None:
                     out.append(((a.track_id, b.track_id), seq))
@@ -146,8 +152,8 @@ class FightAssessor(BehaviourAssessor):
             self.seen[p.track_id] = now
         if self.model is None or self.seq is None:
             return [_obs(p, Outcome.UNCERTAIN, 0.0, "fight_model_missing") for p in persons]
-        ok = [p for p in persons if gate(p, self.t) is None]
-        near, items = self.seq.update(ok, now)
+        # nearness over ALL persons: a gated-out partner (conf drops while grappling) means "can't tell", not "alone"
+        near, items = self.seq.update(persons, now, {p.track_id for p in persons if gate(p, self.t) is None})
         probs = self.model.score(np.stack([s for _, s in items])) if items else []
         best: dict[int, float] = {}
         for ((ta, tb), _), pr in zip(items, probs, strict=True):
