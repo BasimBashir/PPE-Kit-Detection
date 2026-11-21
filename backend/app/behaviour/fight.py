@@ -21,7 +21,7 @@ from app.inference.ultralytics_detector import weights_version
 from app.ppe.types import Box, Observation, Outcome, TrackedPerson
 from app.streaming.frame import Frame
 
-SEQ_LEN, HZ = 16, 5.0  # training defaults (3 s of motion at 5 Hz); checkpoints store the values used
+SEQ_LEN, HZ = 8, 5.0  # training defaults (1.4 s at 5 Hz: fits SCFD's ~2 s clips); checkpoints store the values used
 N_FEAT = 102  # 2 people x 17 keypoints x (x, y, conf)
 
 
