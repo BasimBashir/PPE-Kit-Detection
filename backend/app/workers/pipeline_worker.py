@@ -121,7 +121,7 @@ class PipelineWorker:
         self.watchdog = CameraWatchdog()
         self.sampler = ResourceSampler("worker", {"evidence": self.evidence.root})
         self.stage_ms: dict[str, RollingWindow] = {k: RollingWindow(60.0) for k in
-                                                   ("person", "ppe", "items", "classifier", "tracking",
+                                                   ("person", "ppe", "items", "phone", "classifier", "tracking",
                                                     "association", "total")}
         self.batch_sizes = RollingWindow(60.0)
         self.stop_evt = threading.Event()

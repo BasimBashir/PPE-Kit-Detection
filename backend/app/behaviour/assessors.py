@@ -9,9 +9,11 @@ from collections import deque
 
 import numpy as np
 
-from app.config.settings import BehaviourConfig, RuleThresholds
+from app.config.settings import AssociationConfig, BehaviourConfig, RuleThresholds
 from app.inference.types import Detection
-from app.ppe.types import Observation, Outcome, TrackedPerson
+from app.ppe.geometry import clip, ioa
+from app.ppe.head_roi import head_roi, region_rois
+from app.ppe.types import Box, Observation, Outcome, TrackedPerson
 from app.streaming.frame import Frame
 
 KP_LSH, KP_RSH, KP_LHIP, KP_RHIP = 5, 6, 11, 12
@@ -156,3 +158,36 @@ class IdleAssessor(BehaviourAssessor):
         if move <= cfg.idle_max_range:
             return _obs(p, Outcome.ABSENT, 1.0 - move / cfg.idle_max_range, "still")
         return _obs(p, Outcome.PRESENT, min(1.0, move / cfg.idle_max_range - 1.0), "moving")
+
+
+def _grow(b: Box, s: float, w: float, h: float) -> Box:
+    cx, cy, hw, hh = (b[0] + b[2]) / 2, (b[1] + b[3]) / 2, (b[2] - b[0]) * s / 2, (b[3] - b[1]) * s / 2
+    return clip((cx - hw, cy - hh, cx + hw, cy + hh), w, h)
+
+
+class PhoneAssessor(BehaviourAssessor):
+    """Phone use = a detected phone over a hand or at the head (call). Dropouts shorter than phone_gap_s keep the
+    evidence, so a small, intermittently detected phone still builds an episode. Evidence conf = rule absent_conf."""
+
+    def __init__(self, cfg: BehaviourConfig, thresholds: RuleThresholds, assoc: AssociationConfig):
+        super().__init__(cfg, thresholds)
+        self.assoc = assoc
+        self.last: dict[int, tuple[float, Box, float]] = {}  # track -> (ts, phone box, conf) of the last match
+
+    def _drop(self, track_id: int) -> None:
+        self.last.pop(track_id, None)
+
+    def _one(self, p: TrackedPerson, dets: list[Detection], frame: Frame) -> Observation:
+        cfg, now, w, h = self.cfg, frame.captured_at, frame.width, frame.height
+        rois = [r for r, _ in region_rois("hands", p, self.assoc, w, h)] + [head_roi(p, self.assoc, w, h)[0]]
+        grown = [_grow(r, cfg.phone_roi_scale, w, h) for r in rois]
+        phones = [d for d in dets if d.cls == "phone" and d.conf >= self.t.absent_conf]
+        best = max(((ioa(d.xyxy, r), d) for d in phones for r in grown), key=lambda x: x[0], default=(0.0, None))
+        if best[1] is not None and best[0] >= cfg.phone_min_ioa:
+            self.last[p.track_id] = (now, best[1].xyxy, best[1].conf)
+        seen = self.last.get(p.track_id)
+        if seen and now - seen[0] <= cfg.phone_gap_s:
+            o = _obs(p, Outcome.ABSENT, seen[2], "phone_at_hand_or_head")
+            o.item_roi = o.absent_box = seen[1]
+            return o
+        return _obs(p, Outcome.PRESENT, 1.0, "no_phone")

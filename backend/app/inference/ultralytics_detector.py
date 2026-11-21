@@ -66,20 +66,26 @@ class UltralyticsCascadeDetector:
         self.items = _Stage(models.items, models_dir) if models.items else None
         self._items_ids = {v: k for k, v in models.items_class_map.items()}
         self.version = f"{self.person.version}+{self.ppe.version}" + (f"+{self.items.version}" if self.items else "")
+        # Phase 4: COCO detector for phones (ADR-015); same downscaled frames, one more batched call
+        self.phone = _Stage(models.phone, models_dir) if models.phone else None
+        self._phone_ids = {v: k for k, v in models.phone_class_map.items()}
+        if self.phone:
+            self.version += f"+{self.phone.version}"
 
     def model_versions(self) -> dict[str, str]:
         return {"person": self.person.version, "ppe": self.ppe.version,
-                **({"items": self.items.version} if self.items else {})}
+                **({"items": self.items.version} if self.items else {}),
+                **({"phone": self.phone.version} if self.phone else {})}
 
     def warmup(self) -> None:
         dummy = [np.zeros((720, 1280, 3), np.uint8)]
-        for st in (self.person, self.ppe, self.items):
+        for st in (self.person, self.ppe, self.items, self.phone):
             if st:
                 st.predict(dummy)
 
     def _fit(self, frames: list[Frame]) -> tuple[list[np.ndarray], list[float]]:
         """Images no larger than the biggest stage input (long side), and the factor back to source pixels."""
-        side = max(st.spec.imgsz for st in (self.person, self.ppe, self.items) if st)
+        side = max(st.spec.imgsz for st in (self.person, self.ppe, self.items, self.phone) if st)
         images, k = [], []
         for f in frames:
             h, w = f.image.shape[:2]
@@ -128,7 +134,8 @@ class UltralyticsCascadeDetector:
 
         idx = [i for i, fd in enumerate(out) if fd.detections or not self.cfg.cascade_skip_ppe_without_person]
         if idx:
-            for stage, st, ids in (("ppe", self.ppe, self._ppe_ids), ("items", self.items, self._items_ids)):
+            for stage, st, ids in (("ppe", self.ppe, self._ppe_ids), ("items", self.items, self._items_ids),
+                                   ("phone", self.phone, self._phone_ids)):
                 if st is None:
                     continue
                 res2, dt2 = self._timed(stage, st.predict, [images[i] for i in idx])

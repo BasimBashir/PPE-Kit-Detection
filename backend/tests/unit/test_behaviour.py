@@ -118,3 +118,35 @@ def test_stalling_confirms_after_the_rules_idle_time():
     res = idle_run(lambda t: body_kps(), 40, fsm=fsm)
     confirmed = [t for t, _, trs in res for tr in trs if tr.new is PPEState.CONFIRMED_NON_COMPLIANT]
     assert confirmed and 28.0 <= confirmed[0] <= 30.0  # ~8 s warm-up + 20 s idle
+
+
+from app.behaviour.assessors import PhoneAssessor  # noqa: E402
+from app.config.settings import AssociationConfig  # noqa: E402
+from app.inference.types import Detection  # noqa: E402
+
+PERSON = (400.0, 100.0, 520.0, 500.0)
+IN_HAND = (390.0, 300.0, 420.0, 340.0)  # over the left hand ROI (~377,295,429,347)
+
+
+def phone_at(a, t, phone=None, conf=0.9):
+    dets = [Detection("phone", conf, phone, "t")] if phone else []
+    (o,) = a.assess_deferred([TrackedPerson(1, PERSON, 0.9, body_kps())], dets, frame(t))
+    return o
+
+
+def test_phone_in_hand_is_absent_with_the_phone_as_evidence():
+    o = phone_at(PhoneAssessor(CFG, RuleThresholds(), AssociationConfig()), 0.0, IN_HAND)
+    assert o.outcome is Outcome.ABSENT and o.reason == "phone_at_hand_or_head" and o.item_roi == IN_HAND
+
+
+def test_phone_far_from_the_body_or_low_confidence_is_normal():
+    a = PhoneAssessor(CFG, RuleThresholds(), AssociationConfig())
+    assert phone_at(a, 0.0, (800.0, 600.0, 830.0, 640.0)).outcome is Outcome.PRESENT
+    assert phone_at(a, 0.2, IN_HAND, conf=0.2).outcome is Outcome.PRESENT  # below the rule's absent_conf
+
+
+def test_short_detector_dropouts_are_bridged():
+    a = PhoneAssessor(CFG, RuleThresholds(), AssociationConfig())
+    assert phone_at(a, 0.0, IN_HAND).outcome is Outcome.ABSENT
+    assert phone_at(a, 1.0).outcome is Outcome.ABSENT  # 1 s gap <= phone_gap_s (2 s)
+    assert phone_at(a, 2.5).outcome is Outcome.PRESENT
