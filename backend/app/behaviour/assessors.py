@@ -131,9 +131,11 @@ class IdleAssessor(BehaviourAssessor):
     def __init__(self, cfg: BehaviourConfig, thresholds: RuleThresholds):
         super().__init__(cfg, thresholds)
         self.hist: dict[int, deque[tuple[float, np.ndarray, float]]] = {}  # (ts, (18,2) pixels/NaN, box height)
+        self.cached: dict[int, tuple[float, float]] = {}  # track -> (calc ts, move); nanpercentile is ~1.5 ms/call
 
     def _drop(self, track_id: int) -> None:
         self.hist.pop(track_id, None)
+        self.cached.pop(track_id, None)
 
     def _one(self, p: TrackedPerson, dets: list[Detection], frame: Frame) -> Observation:
         cfg, now = self.cfg, frame.captured_at
@@ -149,12 +151,17 @@ class IdleAssessor(BehaviourAssessor):
             h.popleft()
         if now - h[0][0] < 0.8 * cfg.idle_window_s:
             return _obs(p, Outcome.UNCERTAIN, 0.0, "warming_up")
-        arr = np.stack([x for _, x, _ in h])  # (T, 18, 2)
-        valid = (~np.isnan(arr[..., 0])).sum(axis=0) >= 2
-        lo = np.nanpercentile(arr[:, valid], 5, axis=0)
-        hi = np.nanpercentile(arr[:, valid], 95, axis=0)
-        span = (hi - lo).T  # (2, V)
-        move = float(np.max(np.hypot(span[0], span[1]))) / float(np.median([b for _, _, b in h]))
+        prev = self.cached.get(p.track_id)
+        if prev is not None and now - prev[0] < 0.5:  # shortcut: 2 Hz recompute; a 10 s window changes slowly
+            move = prev[1]
+        else:
+            arr = np.stack([x for _, x, _ in h])  # (T, 18, 2)
+            valid = (~np.isnan(arr[..., 0])).sum(axis=0) >= 2
+            lo = np.nanpercentile(arr[:, valid], 5, axis=0)
+            hi = np.nanpercentile(arr[:, valid], 95, axis=0)
+            span = (hi - lo).T  # (2, V)
+            move = float(np.max(np.hypot(span[0], span[1]))) / float(np.median([b for _, _, b in h]))
+            self.cached[p.track_id] = (now, move)
         if move <= cfg.idle_max_range:
             return _obs(p, Outcome.ABSENT, 1.0 - move / cfg.idle_max_range, "still")
         return _obs(p, Outcome.PRESENT, min(1.0, move / cfg.idle_max_range - 1.0), "moving")
