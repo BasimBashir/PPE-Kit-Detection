@@ -1,16 +1,16 @@
 # Test report
 
-**Run date:** 2026-11-20 (Phase 3; Phase 2 report below) · **Host:** Windows 11, i5-12400F, RTX 3090, Python 3.12.10, Node 24.16 ·
+**Run date:** 2026-11-23 (Phase 4; Phase 3 and Phase 2 details below) · **Host:** Windows 11, i5-12400F, RTX 3090, Python 3.12.10, Node 24.16 ·
 **Commit state:** local runs; GitHub Actions CI re-runs backend tests (minus the GPU test), ruff, and the frontend type-check/tests/build on every push to `main` (promtool, alembic check and the live benchmarks are local only).
 
 ## Results (exact commands, actual output)
 | Suite | Command | Result |
 |---|---|---|
-| Backend unit + integration | `cd backend && uv run pytest tests -q -m "not gpu"` (Docker services up) | **115 passed** in 22 s |
+| Backend unit + integration | `cd backend && uv run pytest tests -q -m "not gpu"` (Docker services up) | **148 passed** in 22 s (Phase 4 adds fall/stalling/phone assessor tests, schedule gating, behaviour worker wiring) |
 | Backend GPU (real frames through the cascade incl. the Phase 3 items stage) | `uv run pytest tests -q -m gpu` | **1 passed** |
 | Backend lint | `uv run ruff check backend/app backend/tests scripts` | clean |
 | Frontend types | `cd frontend && npx tsc --noEmit -p .` | clean |
-| Frontend unit | `npx vitest run` | **16 passed** |
+| Frontend unit | `npx vitest run` | **17 passed** |
 | Frontend build | `npm run build` | built (one >500 kB chunk warning from recharts; served locally) |
 | Prometheus rules | `promtool check rules deployments/docker/alert-rules.yml` | SUCCESS: 10 rules |
 | Migrations | `alembic check` | no drift between models and migration |
@@ -44,6 +44,10 @@
 | Phase 3: network sharding parse + deterministic camera split | `test_multi_ppe.py::test_shard_parsing_and_camera_split` |
 | Phase 3: site presets validate | `test_multi_ppe.py::test_site_presets_validate` |
 | Phase 3: zone polygons are resolution-independent (SD/FHD/4K foot-point + mask fraction) | `test_ppe_logic.py::test_zone_polygon_is_resolution_independent` |
+| Phase 4: fall = fast transition only (fast fall confirms after hold, getting up ends it, slow lying / bending / no pose / gated person never fire) | `test_behaviour.py::test_fast_fall_then_lying_is_absent_and_confirms_after_hold`, `test_lying_down_slowly_never_starts_an_episode`, `test_bending_over_is_not_a_fall`, `test_no_pose_is_uncertain_never_a_fall`, `test_small_or_low_confidence_person_is_not_assessed` |
+| Phase 4: stalling timer (warming up, still = absent, working hands = moving, confirms after the rule's idle time) | `test_behaviour.py::test_still_person_is_absent_after_warmup`, `test_working_hands_count_as_moving`, `test_stalling_confirms_after_the_rules_idle_time` |
+| Phase 4: phone evidence over hand/head ROI, dropout bridging, far/low-conf phone = normal | `test_behaviour.py::test_phone_in_hand_is_absent_with_the_phone_as_evidence`, `test_short_detector_dropouts_are_bridged`, `test_phone_far_from_the_body_or_low_confidence_is_normal` |
+| Phase 4: behaviour config validation, schedule gating (off shift = no observations), worker wiring | `test_behaviour_config.py`, `test_behaviour_worker.py` |
 | Phase 3: secondary rule records the event with NO outbox row (no alert delivery) | `integration/test_persistence.py::test_secondary_rule_records_event_without_alert_delivery` |
 | Phase 3: preset API flow (create, apply idempotent, 422s, delete) | `integration/test_api.py::test_operator_presets_create_apply_and_validate` |
 

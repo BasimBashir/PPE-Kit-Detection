@@ -7,7 +7,8 @@ Earlier run kept for the before/after comparison: [results_before_classifier_bat
 Hand-written follow-up measurements (TensorRT FP16, NVDEC probe, CPU-only profile, tracking placement):
 [phase2-performance.md](phase2-performance.md). Phase 3: multi-item + 4K pipeline profiles (`results/p3_*.json`),
 decode-capacity probe (`results/decode_4k.json`), and the full 4K analysis + 10-50 camera sizing:
-[phase3-4k.md](phase3-4k.md).
+[phase3-4k.md](phase3-4k.md). Phase 4: behaviour-rule + phone-stage cost (`results/p4_uhd_cams10_fps5_nvdec.json`,
+analysis in [../ml/phase4-log.md](../ml/phase4-log.md) §6).
 
 **Host:** RTX 3090 24 GB, Intel i5-12400F (6C/12T), 64 GB RAM, Windows 11, torch 2.14.1+cu130, Ultralytics 8.4.198.
 **Sources:** 10 simulated RTSP cameras (720p H.264, 24-30 FPS, looped stock clips via MediaMTX + Toxiproxy, TCP).

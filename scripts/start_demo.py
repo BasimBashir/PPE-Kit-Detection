@@ -77,7 +77,8 @@ def write_override(name: str, text: str) -> None:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--streams", type=int, default=None, help="initial number of simulated cameras (1-10)")
-    ap.add_argument("--weights-url", help="zip with yolo26s-pose.pt, ppe_yolo26s.pt, head_cls_yolo26n.pt, ppe_items_yolo26m.pt")
+    ap.add_argument("--weights-url",
+                    help="zip with yolo26s-pose.pt, ppe_yolo26s.pt, head_cls_yolo26n.pt, ppe_items_yolo26m.pt")
     ap.add_argument("--cpu", action="store_true", help="force CPU inference (slow: defaults to 2 streams @ 2 fps)")
     ap.add_argument("--work-dir", default=str(Path.home() / "ppe-work"), help="dataset / training scratch space")
     ap.add_argument("--no-start", action="store_true", help="prepare everything but do not start the app")

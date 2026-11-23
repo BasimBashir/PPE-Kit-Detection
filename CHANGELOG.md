@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.4.0 - 2026-11-23
+Phase 4: behaviour and safety checks (fall, fight, phone use during work hours, stalling) as rule-driven checks, per
+person, with per-rule shift schedules. Decision record [ADR-015](docs/decisions/ADR-015-behaviour-checks.md); measured
+results and what failed in [docs/ml/phase4-log.md](docs/ml/phase4-log.md).
+
+- Behaviours reuse the whole PPE path (ADR-015): `ppe_class` in {fall, fight, phone, stalling}, each with an assessor
+  on the `Associator` interface, so the N-of-M state machine, dedupe, evidence, spool, outbox, retention and UI apply
+  unchanged. ABSENT = the behaviour is happening; PRESENT = normal; UNCERTAIN = not assessable (never a violation).
+- **Fall** = a fast sequence, not a posture: torso upright (<= 35 deg) -> lying (>= 60 deg) within 2 s with the hips
+  dropping >= 0.25 standing body height, held down for the rule's duration policy. Slow lying down, bending and
+  squatting never fire (unit-tested).
+- **Fight** = a pair-keypoint GRU on CPU; training (`extract_fight_sequences.py`) and serving (`app/behaviour/fight.py`)
+  share the same features: 2 x 17 keypoints, pair-centred and body-height normalised, 1.4 s window @ 5 Hz.
+- **Phone use** = COCO class 67 over a 1.8x grown hand/head ROI (new COCO detection stage, `models.phone`), dropouts
+  <= 2 s bridged. **Stalling** = keypoint stillness (5th-95th percentile range over 10 s): stillness, not intent -
+  scope it to a work-area zone + schedule.
+- Per-rule **shift schedule** (IANA tz + days + "HH:MM-HH:MM" windows; an overnight window belongs to its start day),
+  editable in the UI (`ScheduleEditor`), seeded per preset, exposed on `Rule` (`schedule`, migration 0004). Off shift
+  a rule emits no observations at all. Only new runtime dependency: `tzdata`.
+- Measured, honestly low: fall OmniFall "in the wild" onset recall 17.4 % @ 5 fps / 27.6 % @ 10 fps; confirmable
+  falls caught 0.65 % / 1.5 %; 1.09 false alarms/h. Fight GRU val F1 0.65 @ 0.55 (RLVS), cross-dataset F1 0.39
+  (SCFD). Phone-stage COCO val2017 class 67 AP50 0.598 @ 640 / 0.547 @ 1280 (a close-up proxy). Site footage is
+  required before any field accuracy claim; the fight weights are MVP-only.
+- Cost: 10 x 4K @ 5 fps drops from 20.7 to 13.8 processed fps with four behaviour rules + the phone stage; the delta
+  is association (22 ms p50 vs 0.7), dominated by the quadratic pair sequencer - vectorising it is the next step.
+- Tests: backend 148 passed (behaviour unit tests + phone-stage integration), frontend lint/vitest/build green.
+
 ## 0.3.0 - 2026-11-20
 Phase 3: multi-PPE (vest, gloves, goggles, safety shoes) with per-site mandatory/secondary rules, operator presets, configurable item catalogue, 4K support.
 
