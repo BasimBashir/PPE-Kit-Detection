@@ -4,9 +4,10 @@
   python scripts/demo/scan_test_segments.py --split fall-itw --min-seconds 3
   python scripts/demo/scan_test_segments.py --split fight-scfd --max-seconds 20
 
-Splits: fall-syn / fall-itw read the OmniFall test CSVs (labelled fall segments); fight-scfd / fight-rlvs read the
-SCFD (test set) or RLVS (val set) fight folders. Nothing is written - feed the printed clips to
-behaviour_video.py to render them. Same pose model, tracker, assessors and state machines as production.
+Splits: fall-syn / fall-itw read the OmniFall test CSVs (labelled fall segments); itw-all reads every in-the-wild
+segment of at least --min-seconds (phone use is not fall-specific); fight-scfd / fight-rlvs read the SCFD (test
+set) or RLVS (val set) fight folders. Nothing is written - feed the printed clips to behaviour_video.py to render
+them. Same pose model, tracker, assessors and state machines as production.
 """
 
 from __future__ import annotations
@@ -24,12 +25,12 @@ DATA = ROOT / "data"
 
 def segments(split: str, min_seconds: float, max_seconds: float, limit: int) -> list[tuple[Path, float, float]]:
     out: list[tuple[Path, float, float]] = []
-    if split in ("fall-syn", "fall-itw"):
+    if split in ("fall-syn", "fall-itw", "itw-all"):
         name = "of_syn_test.csv" if split == "fall-syn" else "of_itw_test.csv"
         with (DATA / "fall" / name).open(newline="") as f:
             for r in csv.DictReader(f):
                 start, end = float(r["start"]), float(r["end"])
-                if r["label"] == "fall" and end - start >= min_seconds:
+                if (split == "itw-all" or r["label"] == "fall") and end - start >= min_seconds:
                     out.append((Path(r["video"]), start, end))
     else:
         sub = DATA / "fight" / ("scfd/fight" if split == "fight-scfd" else "rlvs/Violence")
@@ -94,7 +95,8 @@ def scan(path: Path, start: float, end: float, fps: float, models) -> list[tuple
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--split", required=True, choices=["fall-syn", "fall-itw", "fight-scfd", "fight-rlvs"])
+    ap.add_argument("--split", required=True,
+                    choices=["fall-syn", "fall-itw", "itw-all", "fight-scfd", "fight-rlvs"])
     ap.add_argument("--rules", default=None, help="default: fall for fall-*, fight for fight-*")
     ap.add_argument("--fps", type=float, default=5.0)
     ap.add_argument("--min-seconds", type=float, default=3.0, help="skip shorter fall segments")
@@ -107,7 +109,8 @@ def main() -> int:
     from app.ppe.state_machine import PPEStateMachine
     from ultralytics import YOLO
 
-    rules = [r for r in (a.rules or ("fall" if a.split.startswith("fall") else "fight")).split(",") if r]
+    default_rule = "fall" if a.split.startswith("fall") else "phone" if a.split == "itw-all" else "fight"
+    rules = [r for r in (a.rules or default_rule).split(",") if r]
     cfg, assoc, tcfg = BehaviourConfig(), AssociationConfig(), TrackingConfig()
     pose = YOLO(str(ROOT / "models" / "yolo26s-pose.pt"))
     phone = YOLO(str(ROOT / "models" / "yolo26s.pt")) if "phone" in rules else None
