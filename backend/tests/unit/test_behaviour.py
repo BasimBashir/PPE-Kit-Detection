@@ -54,6 +54,12 @@ def test_getting_up_ends_the_fall():
     assert res[-1][1].outcome is Outcome.PRESENT and res[-1][1].reason == "upright"
 
 
+def test_fallen_person_at_mid_angle_is_still_absent():
+    # after the fall, a mid torso angle must not break the 'still down' hold (e.g. rolling while on the ground)
+    res = run(FallAssessor(CFG, RuleThresholds()), [UPRIGHT] * 3 + [MID] + [LYING] * 2 + [MID])
+    assert res[-1][1].outcome is Outcome.ABSENT and res[-1][1].reason == "down_after_fall"
+
+
 def test_lying_down_slowly_never_starts_an_episode():
     fsm = PPEStateMachine("cam01", BEHAVIOURS["fall"].policy, 3.0)
     res = run(FallAssessor(CFG, RuleThresholds()), [UPRIGHT] + [MID] * 15 + [LYING] * 30, fsm=fsm)
@@ -143,6 +149,14 @@ def test_phone_far_from_the_body_or_low_confidence_is_normal():
     a = PhoneAssessor(CFG, RuleThresholds(), AssociationConfig())
     assert phone_at(a, 0.0, (800.0, 600.0, 830.0, 640.0)).outcome is Outcome.PRESENT
     assert phone_at(a, 0.2, IN_HAND, conf=0.2).outcome is Outcome.PRESENT  # below the rule's absent_conf
+
+
+def test_one_phone_is_evidence_for_one_person_only():
+    a = PhoneAssessor(CFG, RuleThresholds(), AssociationConfig())
+    dets = [Detection("phone", 0.9, IN_HAND, "t")]
+    obs = a.assess_deferred([TrackedPerson(1, PERSON, 0.9, body_kps()), TrackedPerson(2, PERSON, 0.9, body_kps())],
+                            dets, frame(0.0))
+    assert [o.outcome for o in obs].count(Outcome.ABSENT) == 1
 
 
 def test_short_detector_dropouts_are_bridged():

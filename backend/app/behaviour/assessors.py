@@ -112,13 +112,13 @@ class FallAssessor(BehaviourAssessor):
             self.stand_h[tid] = p.box[3] - p.box[1]
             self.fallen.discard(tid)
             return _obs(p, Outcome.PRESENT, conf, "upright")
+        if tid in self.fallen:  # still down at any non-upright angle; getting up hits the branch above
+            return _obs(p, Outcome.ABSENT, conf, "down_after_fall")
         if angle < cfg.lying_min_deg:
             return _obs(p, Outcome.UNCERTAIN, 0.0, "transition")  # wait for the next sample
         stand = self.stand_h.get(tid)
-        if tid not in self.fallen and stand and any(
-                a <= cfg.upright_max_deg and hip_y - y >= cfg.drop_frac * stand for _, a, y in h):
+        if stand and any(a <= cfg.upright_max_deg and hip_y - y >= cfg.drop_frac * stand for _, a, y in h):
             self.fallen.add(tid)
-        if tid in self.fallen:
             return _obs(p, Outcome.ABSENT, conf, "down_after_fall")
         return _obs(p, Outcome.PRESENT, conf, "horizontal_without_fall")
 
@@ -174,7 +174,8 @@ def _grow(b: Box, s: float, w: float, h: float) -> Box:
 
 class PhoneAssessor(BehaviourAssessor):
     """Phone use = a detected phone over a hand or at the head (call). Dropouts shorter than phone_gap_s keep the
-    evidence, so a small, intermittently detected phone still builds an episode. Evidence conf = rule absent_conf."""
+    evidence, so a small, intermittently detected phone still builds an episode. One phone is evidence for one person
+    only (highest overlap wins). Evidence conf = the phone detection's conf."""
 
     def __init__(self, cfg: BehaviourConfig, thresholds: RuleThresholds, assoc: AssociationConfig):
         super().__init__(cfg, thresholds)
@@ -184,16 +185,36 @@ class PhoneAssessor(BehaviourAssessor):
     def _drop(self, track_id: int) -> None:
         self.last.pop(track_id, None)
 
-    def _one(self, p: TrackedPerson, dets: list[Detection], frame: Frame) -> Observation:
-        cfg, now, w, h = self.cfg, frame.captured_at, frame.width, frame.height
-        rois = [r for r, _ in region_rois("hands", p, self.assoc, w, h)] + [head_roi(p, self.assoc, w, h)[0]]
-        grown = [_grow(r, cfg.phone_roi_scale, w, h) for r in rois]
+    def assess_deferred(self, persons: list[TrackedPerson], dets: list[Detection], frame: Frame) -> list[Observation]:
+        self._forget(frame.captured_at)
+        cfg, w, h = self.cfg, frame.width, frame.height
         phones = [d for d in dets if d.cls == "phone" and d.conf >= self.t.absent_conf]
-        best = max(((ioa(d.xyxy, r), d) for d in phones for r in grown), key=lambda x: x[0], default=(0.0, None))
-        if best[1] is not None and best[0] >= cfg.phone_min_ioa:
-            self.last[p.track_id] = (now, best[1].xyxy, best[1].conf)
+        gated = [p for p in persons if gate(p, self.t) is None]
+        rois = {p.track_id: [_grow(r, cfg.phone_roi_scale, w, h) for r, _ in region_rois("hands", p, self.assoc, w, h)]
+                           + [_grow(head_roi(p, self.assoc, w, h)[0], cfg.phone_roi_scale, w, h)] for p in gated}
+        cands = sorted(((ioa(d.xyxy, r), p.track_id, i) for p in gated for i, d in enumerate(phones)
+                        for r in rois[p.track_id]), reverse=True)
+        match, taken = {}, set()
+        for score, tid, i in cands:  # greedy by overlap: one phone -> one person
+            if score < cfg.phone_min_ioa:
+                break
+            if tid not in match and i not in taken:
+                match[tid] = phones[i]
+                taken.add(i)
+        out = []
+        for p in persons:
+            self.seen[p.track_id] = frame.captured_at
+            reason = gate(p, self.t)
+            out.append(_obs(p, Outcome.UNCERTAIN, 0.0, f"not_assessable:{reason}") if reason
+                       else self._decide(p, match.get(p.track_id), frame))
+        return out
+
+    def _decide(self, p: TrackedPerson, phone: Detection | None, frame: Frame) -> Observation:
+        now = frame.captured_at
+        if phone is not None:
+            self.last[p.track_id] = (now, phone.xyxy, phone.conf)
         seen = self.last.get(p.track_id)
-        if seen and now - seen[0] <= cfg.phone_gap_s:
+        if seen and now - seen[0] <= self.cfg.phone_gap_s:
             o = _obs(p, Outcome.ABSENT, seen[2], "phone_at_hand_or_head")
             o.item_roi = o.absent_box = seen[1]
             return o
