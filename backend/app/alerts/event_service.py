@@ -389,7 +389,7 @@ class EventService(threading.Thread):
             return
         try:
             with session_scope(self.sf) as s:
-                listed = att_repo.gallery(s, att_repo.inside_ids(s), x.direction)
+                listed = att_repo.gallery(s, att_repo.outside_ids(s), x.direction)
                 people = {pid for pid, _ in listed}
                 track = (x.camera_id, x.track_id)
                 cached = self._track_ident.get(track)

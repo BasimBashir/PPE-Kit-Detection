@@ -27,7 +27,9 @@ def get_person(s: Session, person_id: uuid.UUID) -> Person | None:
     return s.get(Person, person_id)
 
 
-def inside_ids(s: Session) -> set[uuid.UUID]:
+def outside_ids(s: Session) -> set[uuid.UUID]:
+    """Person ids whose presence interval is still open - EXIT opened it and no ENTER closed it, so they are
+    currently outside."""
     return set(s.scalars(select(PresenceInterval.person_id).where(PresenceInterval.ended_at.is_(None))))
 
 
@@ -35,12 +37,12 @@ def crossing_counts(s: Session) -> dict[uuid.UUID, int]:
     return dict(s.execute(select(Crossing.person_id, func.count(Crossing.id)).group_by(Crossing.person_id)).all())
 
 
-def gallery(s: Session, inside: set[uuid.UUID], direction: str) -> list[tuple[uuid.UUID, dict]]:
+def gallery(s: Session, outside: set[uuid.UUID], direction: str) -> list[tuple[uuid.UUID, dict]]:
     """(person, reference entry) pairs from people whose current state fits the crossing: an EXIT can only belong
     to someone currently inside, an ENTER only to someone currently outside."""
     out = []
     for p in s.scalars(select(Person)):
-        if (p.id in inside) != (direction == "EXIT"):
+        if (p.id in outside) != (direction == "ENTER"):
             continue
         out.extend((p.id, e) for e in identity.entries(p.gallery))
     return out

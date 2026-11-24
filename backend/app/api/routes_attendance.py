@@ -53,8 +53,8 @@ def _tz(c: AppContext) -> ZoneInfo:
 
 @router.get("/persons")
 def list_persons(s: Session = Depends(db), _u: User = Depends(require("viewer"))):
-    inside, counts = att_repo.inside_ids(s), att_repo.crossing_counts(s)
-    return [person_out(p, p.id in inside, counts.get(p.id, 0)) for p in att_repo.list_persons(s)]
+    outside, counts = att_repo.outside_ids(s), att_repo.crossing_counts(s)
+    return [person_out(p, p.id not in outside, counts.get(p.id, 0)) for p in att_repo.list_persons(s)]
 
 
 @router.post("/persons", status_code=201)
@@ -77,7 +77,7 @@ def update_person(person_id: uuid.UUID, body: PersonUpdate, s: Session = Depends
         setattr(p, k, v)
     audit(s, u.username, "person_update", f"person:{p.id}")
     s.commit()
-    return person_out(p, p.id in att_repo.inside_ids(s), att_repo.crossing_counts(s).get(p.id, 0))
+    return person_out(p, p.id not in att_repo.outside_ids(s), att_repo.crossing_counts(s).get(p.id, 0))
 
 
 @router.delete("/persons/{person_id}", status_code=204)
@@ -123,7 +123,7 @@ def enrol(person_id: uuid.UUID, body: EnrolIn, c: AppContext = Depends(ctx), s: 
             att_repo.rebuild_intervals(s, old)
     audit(s, u.username, "person_enrol", f"person:{p.id}")
     s.commit()
-    return person_out(p, p.id in att_repo.inside_ids(s), att_repo.crossing_counts(s).get(p.id, 0))
+    return person_out(p, p.id not in att_repo.outside_ids(s), att_repo.crossing_counts(s).get(p.id, 0))
 
 
 @router.get("/crossings")

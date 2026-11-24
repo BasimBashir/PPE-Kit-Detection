@@ -63,7 +63,7 @@ def test_door_zone_person_assign_enrol_and_report(client, sf):
 
     # enrolling stores the crop descriptor and assigns that crossing too
     r = client.post(f"/api/v1/attendance/persons/{alice}/gallery", headers=admin, json={"crossing_id": unknown_key})
-    assert r.json()["gallery_size"] == 1 and r.json()["inside"] is True
+    assert r.json()["gallery_size"] == 1 and r.json()["inside"] is False  # trailing EXIT open -> outside
     assert client.get("/api/v1/attendance/crossings?unknown=true", headers=admin).json()["total"] == 0
 
     rep = client.get(f"/api/v1/attendance/report?person_id={alice}&start=2026-01-05&end=2026-01-05",
@@ -117,3 +117,26 @@ def test_attendance_roles_and_errors(client):
                         json={"person_id": None}).status_code == 404
     assert client.get("/api/v1/attendance/report?person_id=00000000-0000-0000-0000-000000000000"
                       "&start=2026-01-01&end=2026-01-02", headers=viewer).status_code == 404
+
+
+def test_gallery_state_gate(client, sf):
+    # ADR-016: an EXIT can only match someone currently inside, an ENTER only someone currently outside
+    import uuid as _uuid
+
+    admin = login(client)
+    assert client.post("/api/v1/cameras/cam01/zones", headers=admin,
+                       json={"id": "door1", "name": "Main door", "kind": "door",
+                             "polygon": [[0.5, 0.2], [0.5, 0.8]], "enabled": True}).status_code == 201
+    alice = client.post("/api/v1/attendance/persons", headers=admin, json={"name": "Gatey"}).json()["id"]
+
+    def has(direction: str) -> bool:
+        with session_scope(sf) as s:
+            return any(pid == _uuid.UUID(alice) for pid, _ in att_repo.gallery(s, att_repo.outside_ids(s), direction))
+
+    key8 = crossing(sf, at(6, 8), "EXIT")  # enrol gives alice a reference and assigns this EXIT (opens an interval)
+    client.post(f"/api/v1/attendance/persons/{alice}/gallery", headers=admin, json={"crossing_id": key8})
+    assert not has("EXIT") and has("ENTER")  # trailing EXIT open -> outside
+    key10 = crossing(sf, at(6, 10), "ENTER")
+    assert client.patch(f"/api/v1/attendance/crossings/{key10}", headers=admin,
+                        json={"person_id": alice}).status_code == 200
+    assert has("EXIT") and not has("ENTER")  # EXIT..ENTER closed -> inside
