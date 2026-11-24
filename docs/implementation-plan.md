@@ -220,7 +220,7 @@ the window but never vote. Transitions:
 |---|---|
 | users | id uuid, username unique, password_hash (argon2id), role (admin/operator/viewer), enabled, created_at |
 | sessions | token_hash (sha256 hex) pk, user_id fk, created_at, expires_at*, revoked_at |
-| cameras | id text, name, stream_uri, credential_ref, transport, enabled, site, location, target_fps, created_at, updated_at |
+| cameras | id text, name, stream_uri, credential_ref, transport, enabled, site, location, target_fps, module (CSV of selected checks; null = full cascade, ADR-017), created_at, updated_at |
 | camera_health | id bigserial, camera_id fk*, state, reason, recorded_at* (state change history only) |
 | zones | id text, camera_id fk*, name, kind (monitor/ignore/privacy), polygon jsonb, enabled |
 | ppe_rules | id text, name, ppe_class (item key of models.yaml ppe_items), camera_id null, zone_id null, severity, enabled, mandatory (false = secondary: recorded, no alert), thresholds jsonb, temporal_policy jsonb, updated_at |

@@ -15,6 +15,7 @@ class Frame:
     source_pts_s: float | None  # stream presentation timestamp (seconds) if known
     captured_at: float  # host wall clock (time.time()) when decoded - used for persisted timestamps
     captured_mono: float  # time.monotonic() when decoded - used for latency/age math
+    module: str | None = None  # CSV of selected checks; stamped by the camera source from its config
 
     @property
     def width(self) -> int:

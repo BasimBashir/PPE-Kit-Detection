@@ -6,8 +6,8 @@
 ## Results (exact commands, actual output)
 | Suite | Command | Result |
 |---|---|---|
-| Backend unit + integration | `cd backend && uv run pytest tests -q -m "not gpu"` (Docker services up) | **170 passed** in 25 s (Phase 5 adds door-geometry/descriptor/day-clipping and face-match unit tests, attendance API integration incl. enrol-from-camera; Phase 4 added the behaviour assessors) |
-| Backend GPU (real frames through the cascade incl. the Phase 3 items stage) | `uv run pytest tests -q -m gpu` | **1 passed** |
+| Backend unit + integration | `cd backend && uv run pytest tests -q -m "not gpu"` (Docker services up) | **171 passed** in 26 s (Phase 5 adds door-geometry/descriptor/day-clipping and face-match unit tests, attendance API integration incl. enrol-from-camera; Phase 4 added the behaviour assessors) |
+| Backend GPU (real frames through the cascade incl. the Phase 3 items stage and the ADR-017 per-stream module gating) | `uv run pytest tests -q -m gpu` | **1 passed** |
 | Backend lint | `uv run ruff check backend/app backend/tests scripts` | clean |
 | Frontend types | `cd frontend && npx tsc --noEmit -p .` | clean |
 | Frontend unit | `npx vitest run` | **17 passed** |

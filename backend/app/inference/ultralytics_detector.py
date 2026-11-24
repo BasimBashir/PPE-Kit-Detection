@@ -98,6 +98,28 @@ class UltralyticsCascadeDetector:
                 k.append(1.0)
         return images, k
 
+    def _module_plan(self, module: str | None) -> tuple[set[str], set[str] | None]:
+        """1 stream = 1..n selected checks: the inference stages + detector classes a frame needs.
+        None/empty = the full cascade (back-compat); unknown names fail open to the full cascade."""
+        if not module:
+            return {"ppe", "items", "phone"}, None
+        stages, classes = set(), set()
+        for name in module.split(","):
+            if name == "hard_hat":
+                stages.add("ppe")
+                classes |= {"helmet", "head"}
+            elif name == "phone":
+                stages.add("phone")
+                classes.add("phone")
+            elif name in ("fall", "fight", "stalling", "person"):
+                pass  # pose/behaviour checks need only the person stage
+            else:
+                it = self.cfg.ppe_items.get(name)
+                if it:  # items stage, restricted to this item's present/absent classes
+                    stages.add("items")
+                    classes |= {it.present, it.absent}
+        return stages, classes or None
+
     def _timed(self, stage: str, fn, images):
         t0 = time.perf_counter()
         try:
@@ -134,20 +156,25 @@ class UltralyticsCascadeDetector:
 
         idx = [i for i, fd in enumerate(out) if fd.detections or not self.cfg.cascade_skip_ppe_without_person]
         if idx:
+            plans = [self._module_plan(fd.frame.module) for fd in out]
             for stage, st, ids in (("ppe", self.ppe, self._ppe_ids), ("items", self.items, self._items_ids),
                                    ("phone", self.phone, self._phone_ids)):
                 if st is None:
                     continue
-                res2, dt2 = self._timed(stage, st.predict, [images[i] for i in idx])
-                for i, r in zip(idx, res2, strict=True):
-                    out[i].stage_ms[stage] = 1000 * dt2 / len(idx)
+                idx2 = [i for i in idx if stage in plans[i][0]]  # module selection: run the stage only where selected
+                if not idx2:
+                    continue
+                res2, dt2 = self._timed(stage, st.predict, [images[i] for i in idx2])
+                for i, r in zip(idx2, res2, strict=True):
+                    out[i].stage_ms[stage] = 1000 * dt2 / len(idx2)
                     b = r.boxes
                     if b is None or len(b) == 0:
                         continue
                     xyxy, conf, cls = b.xyxy.cpu().numpy() * k[i], b.conf.cpu().numpy(), b.cls.cpu().numpy().astype(int)
+                    keep = plans[i][1]
                     for j in range(len(cls)):
                         name = ids.get(int(cls[j]))
-                        if name:
+                        if name and (keep is None or name in keep):
                             out[i].detections.append(Detection(name, float(conf[j]), tuple(map(float, xyxy[j])),
                                                                st.version))
                             m.detections_total.labels(name, st.version).inc()

@@ -18,11 +18,12 @@ export type CameraStatusMsgItem = CameraStatus & { camera_id: string };
 export interface Camera {
   id: string; name: string; stream_uri: string; credential_ref: string | null; has_credentials: boolean;
   transport: "tcp" | "udp"; enabled: boolean; site: string | null; location: string | null; target_fps: number | null;
-  created_at: string; updated_at: string; status: CameraStatus | null; open_violations: number;
+  module: string[]; created_at: string; updated_at: string; status: CameraStatus | null; open_violations: number;
 }
 export interface CameraCreate {
   id: string; name: string; stream_uri: string; credential_ref?: string | null; transport?: "tcp" | "udp";
   enabled?: boolean; site?: string | null; location?: string | null; target_fps?: number | null;
+  module?: string[] | null;
 }
 export type CameraUpdate = Partial<Omit<CameraCreate, "id">>;
 export interface CameraTestResult {

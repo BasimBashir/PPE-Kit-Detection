@@ -27,7 +27,7 @@ export function CameraWall() {
                   <div className="liveview-empty">{c.enabled ? s?.state_reason ?? "waiting for worker" : "disabled"}</div>}
               </Link>
               <div className="cam-meta">
-                <div className="cam-title"><strong>{c.id}</strong> <span className="muted">{c.name}</span></div>
+                <div className="cam-title"><strong>{c.id}</strong> <span className="muted">{c.name}{c.module?.length ? ` · ${c.module.join(", ")}` : ""}</span></div>
                 <StatusBadge state={c.enabled ? s?.state : "DISABLED"} reason={s?.state_reason} />
               </div>
               <dl className="cam-stats">

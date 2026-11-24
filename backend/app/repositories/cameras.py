@@ -8,7 +8,8 @@ from sqlalchemy.orm import Session
 from app.camera.uri import validate_credential_ref, validate_stream_uri
 from app.models import Camera, Event
 
-EDITABLE = ("name", "stream_uri", "credential_ref", "transport", "enabled", "site", "location", "target_fps")
+EDITABLE = ("name", "stream_uri", "credential_ref", "transport", "enabled", "site", "location", "target_fps",
+            "module")
 
 
 def list_cameras(s: Session) -> list[Camera]:
@@ -24,6 +25,9 @@ def _validate(data: dict[str, Any]) -> None:
         data["stream_uri"] = validate_stream_uri(data["stream_uri"])
     if "credential_ref" in data:
         data["credential_ref"] = validate_credential_ref(data["credential_ref"])
+    if "module" in data:  # API sends a list; the column stores CSV (null = full cascade)
+        mods = data["module"]
+        data["module"] = ",".join(dict.fromkeys(mods)) if mods else None
 
 
 def create_camera(s: Session, data: dict[str, Any]) -> Camera:

@@ -208,7 +208,8 @@ class PipelineWorker:
 
     def _start_camera(self, cam: Camera, rules: list[RuleSeed], zones: list[ZoneRuntime]) -> CamRuntime:
         fps = self._target_fps(cam)
-        cfg = CameraRuntimeConfig(cam.id, cam.stream_uri, cam.credential_ref, cam.transport, cam.enabled, fps)
+        cfg = CameraRuntimeConfig(cam.id, cam.stream_uri, cam.credential_ref, cam.transport, cam.enabled, fps,
+                                  getattr(cam, "module", None))
         cr = CamRuntime(cfg, cam.name, zones=[z for z in zones if z.camera_id == cam.id])
         m.camera_target_fps.labels(cam.id).set(fps if cam.enabled else 0)
         cr.health = CameraHealth(cam.id, self.cfg.ingest)
@@ -238,9 +239,10 @@ class PipelineWorker:
             for cid in list(self.cams):
                 cur, new = self.cams[cid], wanted.get(cid)
                 changed = new is None or (new.stream_uri, new.credential_ref, new.transport, new.enabled,
-                                          self._target_fps(new)) != (cur.cfg.stream_uri, cur.cfg.credential_ref,
-                                                                     cur.cfg.transport, cur.cfg.enabled,
-                                                                     cur.cfg.target_fps)
+                                          self._target_fps(new), getattr(new, "module", None)) != (
+                    cur.cfg.stream_uri, cur.cfg.credential_ref,
+                    cur.cfg.transport, cur.cfg.enabled,
+                    cur.cfg.target_fps, cur.cfg.module)
                 if changed:
                     self._stop_camera(cur)
                     del self.cams[cid]

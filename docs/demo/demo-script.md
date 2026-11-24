@@ -23,5 +23,27 @@
    risk register, runbooks, BUILD_STATUS.md.
 9. **Close (15 s)** - README quick start; limitations section.
 
+## Per-stream module demo (the current rig, ADR-017)
+
+1 stream = 1 class: each camera runs only its selected check's inference stage (Cameras page → "Modules this stream
+detects"; the wall tile shows the selection and a class-list strip).
+
+| Stream | Module | What it shows |
+|---|---|---|
+| cam01 | `hard_hat` | NO HARD HAT fires (workers without helmets); tile lists only head/person classes |
+| cam02 | `safety_shoes` | NO SAFETY SHOES (no_boots) |
+| cam03 | `phone` | PHONE USE (real phone-in-hand clip; 10 s duration policy) |
+| cam04 | `safety_vest` | NO SAFETY VEST (no_vest) |
+| cam05 | `gloves` | NO GLOVES (no_gloves bursts) |
+| cam06 | `goggles` | NO GOGGLES (tuned 4-of-6 confirm for transient bare-eye boxes) |
+| cam07 | `fall` | PERSON DOWN (public fall clip) |
+| cam08 | `fight` | FIGHT in bursts (in-domain clip) |
+| cam09 | `hard_hat` | **bandana reads as helmet → false-COMPLIANT**: the phase-1 negative-class gap — say it out loud |
+| cam10 | `hard_hat` | helmets worn → COMPLIANT, silent |
+| door1 | `person` | attendance: ENTER/EXIT crossings, outside-minutes vs daily budget |
+
+The demo clips for this rig live outside the repo (`STREAMS_DIR`); stock/royalty-free sources, fetched separately —
+the committed `data/streams` set from `fetch_demo_videos.py` also works with modules unset (full cascade).
+
 ## Integrity rules
 Say "simulated cameras / stock footage" out loud; do not quote detector metrics as system recall; state the GPU.

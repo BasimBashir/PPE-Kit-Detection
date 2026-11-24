@@ -67,6 +67,7 @@ class Camera(Base):
     site: Mapped[str | None] = mapped_column(String(128))
     location: Mapped[str | None] = mapped_column(String(128))
     target_fps: Mapped[float | None] = mapped_column(Float)
+    module: Mapped[str | None] = mapped_column(String(256))  # CSV of selected checks; null = full cascade
     created_at: Mapped[datetime] = mapped_column(TS, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(TS, default=utcnow, onupdate=utcnow)
 

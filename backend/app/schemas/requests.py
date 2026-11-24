@@ -43,11 +43,22 @@ class CameraUpdate(Strict):
     site: str | None = Field(default=None, max_length=128)
     location: str | None = Field(default=None, max_length=128)
     target_fps: float | None = Field(default=None, gt=0, le=30)
+    module: list[str] | None = None  # checks this stream runs; empty/None = full cascade
 
     @field_validator("stream_uri")
     @classmethod
     def _uri(cls, v: str | None) -> str | None:
         return None if v is None else validate_stream_uri(v)
+
+    @field_validator("module")
+    @classmethod
+    def _module(cls, v: list[str] | None) -> list[str] | None:
+        if not v:
+            return None
+        bad = [m for m in v if m not in PPE_ITEMS and m not in BEHAVIOURS and m != "person"]
+        if bad:
+            raise ValueError(f"unknown module(s) {bad} - use ppe items, behaviours, 'person' or null")
+        return v
 
     @field_validator("credential_ref")
     @classmethod

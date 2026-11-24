@@ -9,17 +9,19 @@ const EMPTY: CameraCreate = { id: "", name: "", stream_uri: "rtsp://", credentia
 
 export function CameraConfig() {
   const [cams, setCams] = useState<Camera[]>([]);
+  const [items, setItems] = useState<PPEItemInfo[]>([]);
   const [form, setForm] = useState<CameraCreate>(EMPTY);
   const [editing, setEditing] = useState<string | null>(null);
   const [tests, setTests] = useState<Record<string, CameraTestResult | "running">>({});
   const [err, setErr] = useState<string | null>(null);
   const load = () => api.cameras().then(setCams).catch((e) => setErr(e.message));
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); api.ppeItems().then(setItems).catch(() => setItems([])); }, []);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      const body = { ...form, credential_ref: form.credential_ref || null, target_fps: form.target_fps || null };
+      const body = { ...form, credential_ref: form.credential_ref || null, target_fps: form.target_fps || null,
+        module: form.module?.length ? form.module : null };
       if (editing) { const { id: _id, ...rest } = body; await api.updateCamera(editing, rest); }
       else await api.createCamera(body);
       setForm(EMPTY); setEditing(null); setErr(null); load();
@@ -28,8 +30,10 @@ export function CameraConfig() {
   const edit = (c: Camera) => {
     setEditing(c.id);
     setForm({ id: c.id, name: c.name, stream_uri: c.stream_uri, credential_ref: c.credential_ref, transport: c.transport,
-      enabled: c.enabled, site: c.site, location: c.location, target_fps: c.target_fps });
+      enabled: c.enabled, site: c.site, location: c.location, target_fps: c.target_fps, module: c.module });
   };
+  const setModule = (id: string, on: boolean) =>
+    setForm({ ...form, module: on ? [...(form.module ?? []), id] : (form.module ?? []).filter((m) => m !== id) });
   const test = async (id: string) => {
     setTests((t) => ({ ...t, [id]: "running" }));
     try { const r = await api.testCamera(id); setTests((t) => ({ ...t, [id]: r })); }
@@ -46,12 +50,13 @@ export function CameraConfig() {
       <h1>Camera configuration</h1>
       {err && <p className="error" role="alert">{err}</p>}
       <table className="table">
-        <thead><tr><th>ID</th><th>Name</th><th>Stream</th><th>Credentials</th><th>State</th><th>Connectivity test</th><th /></tr></thead>
+        <thead><tr><th>ID</th><th>Name</th><th>Stream</th><th>Modules</th><th>Credentials</th><th>State</th><th>Connectivity test</th><th /></tr></thead>
         <tbody>{cams.map((c) => {
           const t = tests[c.id];
           return (
             <tr key={c.id}>
               <td>{c.id}</td><td>{c.name}</td><td><code>{c.stream_uri}</code> <small>{c.transport}</small></td>
+              <td>{c.module?.length ? c.module.join(", ") : <span className="muted">all</span>}</td>
               <td>{c.credential_ref ? <code>{c.credential_ref}</code> : "none"} {c.credential_ref && !c.has_credentials && <span className="error">unresolved</span>}</td>
               <td><StatusBadge state={c.enabled ? c.status?.state : "DISABLED"} reason={c.status?.state_reason} /></td>
               <td>{t === "running" ? "testing…" : t ? (t.ok ? `OK ${t.codec} ${t.width}×${t.height} @${t.fps?.toFixed(0)} fps (${t.latency_ms} ms)` : <span className="error">{t.error}</span>) : null}</td>
@@ -74,6 +79,13 @@ export function CameraConfig() {
         <label>Target FPS (blank = default)<input type="number" min={0.5} max={30} step={0.5} value={form.target_fps ?? ""} onChange={(e) => setForm({ ...form, target_fps: e.target.value ? Number(e.target.value) : null })} /></label>
         <label>Site<input value={form.site ?? ""} onChange={(e) => setForm({ ...form, site: e.target.value })} /></label>
         <label>Location<input value={form.location ?? ""} onChange={(e) => setForm({ ...form, location: e.target.value })} /></label>
+        <div role="group" aria-label="Modules to detect and process" className="form-grid">
+          <span className="muted small">Modules this stream detects (blank = all checks)</span>
+          <label><input type="checkbox" checked={form.module?.includes("person") ?? false} onChange={(e) => setModule("person", e.target.checked)} />Person (tracking / attendance only)</label>
+          {items.map((it) => (
+            <label key={it.id}><input type="checkbox" checked={form.module?.includes(it.id) ?? false} onChange={(e) => setModule(it.id, e.target.checked)} />{it.label} <small className="muted">({it.kind})</small></label>
+          ))}
+        </div>
         <p className="muted small">Passwords are never entered or shown here: they live in the host environment and are referenced by name.</p>
         <div className="row-actions">
           <button className="btn primary">{editing ? "Save" : "Add camera"}</button>

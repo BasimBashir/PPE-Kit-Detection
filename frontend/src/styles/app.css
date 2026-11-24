@@ -93,6 +93,8 @@ main { padding: 20px; max-width: 1800px; margin: 0 auto; }
 .liveview img, .liveview canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
 .liveview-empty { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; aspect-ratio: 16/9; color: var(--ink-3); background: #0b0b0b; text-align: center; padding: 8px; }
 .liveview-stale { position: absolute; left: 6px; bottom: 6px; background: rgba(58,20,20,.85); color: #ffb4b4; font-size: 11px; padding: 2px 6px; border-radius: 4px; }
+.liveview-dets { position: absolute; left: 6px; bottom: 6px; right: 6px; background: rgba(10,10,10,.72); color: #d8d8d8; font-size: 11px; padding: 2px 6px; border-radius: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.liveview.large .liveview-dets { font-size: 12px; }
 .liveview.large, .liveview-empty.large { aspect-ratio: 16 / 9; height: auto; }
 .detail { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
 @media (max-width: 1100px) { .detail { grid-template-columns: 1fr; } }

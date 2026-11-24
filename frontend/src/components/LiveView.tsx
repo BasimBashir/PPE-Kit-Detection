@@ -84,10 +84,23 @@ export function LiveView({ cameraId, overlay, intervalMs, className }: { cameraI
     else if (ctx && canvas.current) ctx.clearRect(0, 0, canvas.current.width, canvas.current.height);
   }, [frame, overlay]);
 
+  // one line per class, highest confidence first, capped so a busy frame stays readable
+  const dets = frame
+    ? Object.entries(frame.detections.reduce<Record<string, number>>((m, d) => {
+        m[d.cls] = Math.max(m[d.cls] ?? 0, d.conf);
+        return m;
+      }, {}))
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 6)
+        .map(([cls, conf]) => `${cls} ${conf.toFixed(2)}`)
+        .join(" · ")
+    : "";
+
   return (
     <div className={`liveview ${className ?? ""}`}>
       {src ? <img src={src} alt={`Live preview of camera ${cameraId}`} /> : <div className="liveview-empty">{err ? "No live frame" : "Loading…"}</div>}
       {overlay && frame && <canvas ref={canvas} width={frame.width} height={frame.height} aria-hidden="true" />}
+      {overlay && frame && dets && <div className="liveview-dets" role="status">detecting: {dets}</div>}
       {err && src && <div className="liveview-stale" role="status">stale — {err}</div>}
     </div>
   );

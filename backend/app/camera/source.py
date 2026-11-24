@@ -48,6 +48,7 @@ class CameraRuntimeConfig:
     transport: str = "tcp"
     enabled: bool = True
     target_fps: float = 5.0
+    module: str | None = None  # CSV of selected checks; None = full cascade
 
 
 @dataclass
@@ -179,7 +180,8 @@ class CameraSource(threading.Thread):
                     img = frame.to_ndarray(format="bgr24")
                     self.height, self.width = img.shape[:2]
                     self._frame_id += 1
-                    self.slot.put(Frame(self.cam.id, self._frame_id, img, frame.time, time.time(), now))
+                    self.slot.put(Frame(self.cam.id, self._frame_id, img, frame.time, time.time(), now,
+                                        module=self.cam.module))
             if not self.is_file:
                 raise EOFError("stream ended")
             container.seek(0)

@@ -13,13 +13,8 @@ pytestmark = pytest.mark.gpu
 
 def first_frames(path, n=1, skip=30):
     with av.open(str(path)) as c:
-        out = []
-        for i, f in enumerate(c.decode(video=0)):
-            if i >= skip:
-                out.append(f.to_ndarray(format="bgr24"))
-            if len(out) == n:
-                return out
-    return out
+        frames = [f.to_ndarray(format="bgr24") for f in c.decode(video=0)]
+    return (frames[skip:] or frames)[:n]  # short demo clips: skip what is not there
 
 
 def test_cascade_on_demo_frames(streams_dir):
@@ -40,4 +35,5 @@ def test_cascade_on_demo_frames(streams_dir):
     assert persons and all(p.keypoints is not None and p.keypoints.shape == (17, 3) for p in persons)
     ppe = [d for fd in out for d in fd.detections if d.cls in ("helmet", "head")]
     assert ppe, "expected helmet/head detections on demo frames"
-    assert "@" in det.version and set(det.model_versions()) == {"person", "ppe"}
+    expected = {"person", "ppe"} | ({"items"} if det.items else set()) | ({"phone"} if det.phone else set())
+    assert "@" in det.version and set(det.model_versions()) == expected

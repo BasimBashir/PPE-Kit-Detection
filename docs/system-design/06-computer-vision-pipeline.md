@@ -37,6 +37,8 @@ Source: [`diagrams/inference-data-flow.mmd`](diagrams/inference-data-flow.mmd)
 
 ## Interfaces / contracts
 `Detector.detect(frames) -> list[FrameDetections]`; `HeadClassifier.classify(crops)`; `models.backend: mock` for GPU-less tests.
+Frames carry the camera's **module selection** (ADR-017): `detect()` runs a stage only for frames whose camera
+selected it and drops non-selected classes, so a single-check stream never pays for the other models' stages.
 
 ## Data ownership
 Weights in `models/` (Git LFS), versions recorded per event and in `model_versions`.

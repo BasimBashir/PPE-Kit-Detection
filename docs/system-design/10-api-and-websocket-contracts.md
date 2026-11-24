@@ -87,8 +87,10 @@ CameraStatus = {                       // live, from the worker; null fields whe
   last_recovery_s: number|null; active_tracks: number; width: number|null; height: number|null }
 Camera = { id; name; stream_uri; credential_ref: string|null; has_credentials: boolean; transport: "tcp"|"udp";
   enabled: boolean; site: string|null; location: string|null; target_fps: number|null;
+  module: string[];  // checks this stream runs (ADR-017); [] = full cascade. Entries: PPE items, behaviours, "person"
   created_at; updated_at; status: CameraStatus|null; open_violations: number }
-CameraCreate = { id; name; stream_uri; credential_ref?; transport?; enabled?; site?; location?; target_fps? }
+CameraCreate = { id; name; stream_uri; credential_ref?; transport?; enabled?; site?; location?; target_fps?;
+  module?: string[] | null }
 CameraUpdate = Partial<Omit<CameraCreate,"id">>
 Zone = { id; camera_id; name; kind: "monitor"|"ignore"|"privacy"; polygon: [number,number][]; enabled: boolean }
 Rule = { id; name; ppe_class: "hard_hat"|"safety_vest"|"gloves"|"goggles"|"safety_shoes"

@@ -30,10 +30,15 @@ def has_credentials(ref: str | None) -> bool:
     return bool(os.environ.get(f"{prefix}_USER")) and os.environ.get(f"{prefix}_PASS") is not None
 
 
+def _modules_out(csv: str | None) -> list[str]:
+    return [p for p in (csv or "").split(",") if p]
+
+
 def camera_out(c: Camera, status: dict[str, Any] | None, open_violations: int) -> dict[str, Any]:
     return {"id": c.id, "name": c.name, "stream_uri": c.stream_uri, "credential_ref": c.credential_ref,
             "has_credentials": has_credentials(c.credential_ref), "transport": c.transport, "enabled": c.enabled,
-            "site": c.site, "location": c.location, "target_fps": c.target_fps, "created_at": iso(c.created_at),
+            "site": c.site, "location": c.location, "target_fps": c.target_fps, "module": _modules_out(c.module),
+            "created_at": iso(c.created_at),
             "updated_at": iso(c.updated_at), "status": status, "open_violations": open_violations}
 
 
