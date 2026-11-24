@@ -6,7 +6,7 @@
 ## Results (exact commands, actual output)
 | Suite | Command | Result |
 |---|---|---|
-| Backend unit + integration | `cd backend && uv run pytest tests -q -m "not gpu"` (Docker services up) | **163 passed** in 25 s (Phase 5 adds door-geometry/descriptor/day-clipping unit tests, attendance API integration; Phase 4 added the behaviour assessors) |
+| Backend unit + integration | `cd backend && uv run pytest tests -q -m "not gpu"` (Docker services up) | **170 passed** in 25 s (Phase 5 adds door-geometry/descriptor/day-clipping and face-match unit tests, attendance API integration incl. enrol-from-camera; Phase 4 added the behaviour assessors) |
 | Backend GPU (real frames through the cascade incl. the Phase 3 items stage) | `uv run pytest tests -q -m gpu` | **1 passed** |
 | Backend lint | `uv run ruff check backend/app backend/tests scripts` | clean |
 | Frontend types | `cd frontend && npx tsc --noEmit -p .` | clean |
@@ -51,10 +51,12 @@
 | Phase 3: secondary rule records the event with NO outbox row (no alert delivery) | `integration/test_persistence.py::test_secondary_rule_records_event_without_alert_delivery` |
 | Phase 3: preset API flow (create, apply idempotent, 422s, delete) | `integration/test_api.py::test_operator_presets_create_apply_and_validate` |
 | Phase 5: door line sides (positive side = walker's left of the draw direction, inside = x<0.5 for a top-to-bottom line), deadband, ENTER/EXIT need a firm previous side, track-gap re-learn | `test_attendance.py::test_side_sign_and_enter_exit`, `test_deadband_holds_side`, `test_track_gap_relearns_without_emitting` |
-| Phase 5: descriptor (256-d, unit norm) and threshold matching; Unknown never matches | `test_attendance.py::test_descriptor_is_unit_norm_256`, `test_match_threshold` |
-| Phase 5: minutes-outside clips to day bounds, open interval capped at now | `test_attendance.py::test_outside_by_day_clips_to_day`, `test_open_interval_capped_at_now` |
-| Phase 5: door zone needs exactly 2 points (422 otherwise) | `test_attendance.py::test_zone_door_requires_two_points` |
-| Phase 5: attendance API - person create/dup 409, assign then report (840/810 min over the 30-day range), enrol raises gallery size, unknown filter, roles | `integration/test_attendance_api.py` (2 tests) |
+| Phase 5: descriptor (256-d, unit norm) and torso threshold matching; legacy bare-vector galleries read as torso; empty probe never matches | `test_attendance.py::test_crossing_carries_crop_and_descriptor`, `test_legacy_bare_vector_galleries_read_as_torso`, `test_describe_is_empty_for_a_degenerate_crop_and_match_handles_it` |
+| Phase 5: landmarks bucket to frontal/quarter/profile, the face threshold loosens per bucket, a runner-up margin is required, face beats torso, torso only covers a missing face | `test_attendance.py::test_angle_buckets_come_from_the_landmarks`, `test_face_match_loosens_its_threshold_as_the_face_turns`, `test_face_match_needs_a_margin_over_the_runner_up`, `test_face_is_preferred_and_torso_covers_only_a_missing_face` |
+| Phase 5: enrolling dedupes the same reference, caps the gallery and evicts the over-represented angle group before others | `test_attendance.py::test_enrol_entries_dedupes_caps_and_keeps_the_angle_spread` |
+| Phase 5: minutes-outside clips to day bounds, open interval capped at now | `test_attendance.py::test_outside_minutes_are_clipped_to_local_days_and_the_budget`, `test_open_interval_counts_up_to_now` |
+| Phase 5: door zone needs exactly 2 points and a non-degenerate line (422 otherwise); enrol body needs exactly one of crossing/camera | `test_attendance.py::test_zone_in_accepts_only_two_points_for_a_door`, `test_enrol_in_needs_exactly_one_source` |
+| Phase 5: attendance API - person create/dup 409, assign then report (840/810 min over the 30-day range), enrol raises gallery size, enrol from camera (404 no frame, 422 no face, 409 several faces, face ref stored with a box), unknown filter, roles | `integration/test_attendance_api.py` (3 tests) |
 
 ## Integration (spec 19.2)
 Video → detection pipeline on real frames (GPU test), DB persistence, outbox retry/backoff/FAILED, REST camera/event

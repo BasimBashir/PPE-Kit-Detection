@@ -10,11 +10,14 @@ import uuid
 from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+import cv2
+import numpy as np
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.api.deps import ApiError, AppContext, ctx, db, require
+from app.attendance import identity
 from app.attendance.report import outside_by_day
 from app.models import Camera, Person, User
 from app.repositories import attendance as att_repo
@@ -88,14 +91,33 @@ def delete_person(person_id: uuid.UUID, s: Session = Depends(db), u: User = Depe
 @router.post("/persons/{person_id}/gallery")
 def enrol(person_id: uuid.UUID, body: EnrolIn, c: AppContext = Depends(ctx), s: Session = Depends(db),
           u: User = Depends(require("operator"))):
-    p, x = _person_or_404(s, person_id), _crossing_or_404(s, body.crossing_id)
-    if not x.descriptor:
-        raise ApiError(422, "no_descriptor", "that crossing has no appearance descriptor")
-    if x.descriptor not in (p.gallery or []):
-        p.gallery = [*(p.gallery or []), x.descriptor][-c.cfg.attendance.gallery_max:]
-    if x.person_id != p.id:
+    """Add a reference from a crossing (its face and torso, if it has them) or from a live face on a camera."""
+    p = _person_or_404(s, person_id)
+    refs: list[dict] = []
+    x = None
+    if body.crossing_id is not None:
+        x = _crossing_or_404(s, body.crossing_id)
+        if x.face:
+            refs.append(identity.entry(identity.FACE, x.face, x.face_angle or ""))
+        if x.descriptor:
+            refs.append(identity.entry(identity.TORSO, x.descriptor))
+        if not refs:
+            raise ApiError(422, "no_descriptor", "that crossing has no face or torso descriptor")
+    else:
+        preview = c.live.preview(body.camera_id or "")
+        if preview is None:
+            raise ApiError(404, "not_found", "no live frame for this camera")
+        img = cv2.imdecode(np.frombuffer(preview["jpeg"], np.uint8), cv2.IMREAD_COLOR)
+        found = c.faces.faces(img, body.box)
+        if not found:
+            raise ApiError(422, "no_face", "no face detected - face the camera, or pass the box of the person")
+        if len(found) > 1:
+            raise ApiError(409, "several_faces", f"{len(found)} faces in the frame - pass the person's box")
+        refs.append(identity.entry(identity.FACE, c.faces.embed(found[0]), found[0].angle))
+    att_repo.enrol_entries(p, refs, c.cfg.attendance.gallery_max)
+    if x is not None and x.person_id != p.id:
         old = x.person_id
-        x.person_id, x.match_score = p.id, None
+        x.person_id, x.match_score, x.matched_by = p.id, None, None
         att_repo.rebuild_intervals(s, p.id)
         if old:
             att_repo.rebuild_intervals(s, old)

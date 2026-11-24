@@ -122,6 +122,7 @@ class EventService(threading.Thread):
         super().__init__(name="event-service", daemon=True)
         self.sf, self.evidence, self.spool, self.cfg = session_factory, evidence, spool, cfg
         self.att_cfg = attendance or AttendanceConfig()
+        self._track_ident: dict[tuple[str, int], tuple[uuid.UUID, float]] = {}  # (cam, track) -> (person, mono)
         self.run_id, self.channels = run_id, channels
         self.notify = notify if notify is not None else (lambda _msg: None)
         self.replay_interval_s = replay_interval_s
@@ -380,22 +381,36 @@ class EventService(threading.Thread):
             self._db_down()  # non-critical; the event itself is durable
 
     def _crossing(self, x: Crossing) -> None:
-        """Match against enrolled people whose state fits the direction, store the crossing + crop, rebuild the
-        person's intervals. Skipped while the DB breaker is open (crossings are reporting data, not alerts)."""
+        """Attribute the crossing - track continuity first (same pass), then face, then the torso fallback - against
+        people whose state fits the direction, store it + crop, rebuild the person's intervals. Skipped while the DB
+        breaker is open (crossings are reporting data, not alerts)."""
         if not self._db_open():
             m.ppe_crossings_total.labels(x.direction, "dropped").inc()
             return
         try:
             with session_scope(self.sf) as s:
-                best = identity.match(x.descriptor, att_repo.gallery(s, att_repo.inside_ids(s), x.direction),
-                                      self.att_cfg.match_threshold)
+                listed = att_repo.gallery(s, att_repo.inside_ids(s), x.direction)
+                people = {pid for pid, _ in listed}
+                track = (x.camera_id, x.track_id)
+                cached = self._track_ident.get(track)
+                best: tuple[uuid.UUID, float | None, str] | None
+                if cached and cached[0] in people and time.monotonic() - cached[1] <= self.att_cfg.continuity_s:
+                    best = (cached[0], None, "track")  # face turned away on this crossing of the same pass
+                else:
+                    best = identity.match(x.descriptor, x.face, x.face_angle, listed, self.att_cfg)
+                mono = time.monotonic()
+                self._track_ident = {k: v for k, v in self._track_ident.items()
+                                     if mono - v[1] <= self.att_cfg.continuity_s * 2}
+                if best:
+                    self._track_ident[track] = (best[0], mono)
                 lo_x, lo_y = int(max(0, x.person_box[0])), int(max(0, x.person_box[1]))
                 crop = x.image[lo_y:int(x.person_box[3]), lo_x:int(x.person_box[2])]
                 rel, err = self.evidence.save(uuid.uuid4(), crop.copy(), x.at, prefix="crossings/")
                 new = att_repo.insert_crossing(self.sf, {
                     "camera_id": x.camera_id, "zone_id": x.zone_id, "track_id": x.track_id,
                     "direction": x.direction, "at": x.at, "person_id": best[0] if best else None,
-                    "match_score": best[1] if best else None, "descriptor": x.descriptor or None,
+                    "match_score": best[1] if best else None, "matched_by": best[2] if best else None,
+                    "descriptor": x.descriptor or None, "face": x.face or None, "face_angle": x.face_angle or None,
                     "image_path": rel, "image_error": err})
                 if best and new:
                     att_repo.rebuild_intervals(s, best[0])

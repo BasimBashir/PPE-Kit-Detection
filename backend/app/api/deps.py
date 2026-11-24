@@ -43,6 +43,7 @@ class AppContext:
     dispatcher: Any = None
     simulator: Any = None  # SimulatorClient in demo mode
     teacher: Any = None  # TeacherReviewer when teacher review is enabled
+    faces: Any = None  # FaceEngine for attendance enrolment (Phase 5)
     api_resources: dict[str, Any] = field(default_factory=dict)
     login_attempts: dict[str, deque[float]] = field(default_factory=lambda: defaultdict(deque))
     login_lock: threading.Lock = field(default_factory=threading.Lock)

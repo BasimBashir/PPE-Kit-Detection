@@ -228,14 +228,16 @@ class Setting(Base):
 
 
 class Person(Base):
-    """Operator-enrolled identity for door crossings (Phase 5, ADR-016). Deliberately non-biometric: a display
-    name (no employee id) plus appearance descriptors - no faces, no embeddings from a ReID network."""
+    """Operator-enrolled identity for door crossings (Phase 5, ADR-016). A display name (no employee id) plus
+    reference entries - face embeddings with their view angle first, torso histograms as the fallback. No biometric
+    template beyond the embeddings; deleting the person retires them and drops their crossings back to Unknown."""
 
     __tablename__ = "persons"
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(128), unique=True)
     allowed_minutes_per_day: Mapped[int] = mapped_column(Integer, default=0)
-    gallery: Mapped[list[Any]] = mapped_column(JSONB, default=list)  # torso HSV histograms, operator-enrolled
+    # reference entries: {kind: face|torso, vec, angle, crossing_id}; bare vectors = pre-face torso entries
+    gallery: Mapped[list[Any]] = mapped_column(JSONB, default=list)
     created_at: Mapped[datetime] = mapped_column(TS, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(TS, default=utcnow, onupdate=utcnow)
 
@@ -254,7 +256,10 @@ class Crossing(Base):
     occurred_at: Mapped[datetime] = mapped_column(TS, index=True)
     person_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("persons.id", ondelete="SET NULL"), index=True)
     match_score: Mapped[float | None] = mapped_column(Float)  # NULL until matched or assigned by hand
-    descriptor: Mapped[list[Any] | None] = mapped_column(JSONB)
+    matched_by: Mapped[str | None] = mapped_column(String(8))  # face | torso | track (NULL = assigned by hand)
+    descriptor: Mapped[list[Any] | None] = mapped_column(JSONB)  # torso histogram, kept so it can be enrolled
+    face: Mapped[list[Any] | None] = mapped_column(JSONB)  # face embedding, same reason
+    face_angle: Mapped[str | None] = mapped_column(String(8))
     image_path: Mapped[str | None] = mapped_column(Text)  # relative to the evidence root (crossings/...)
     image_error: Mapped[str | None] = mapped_column(String(32))
     created_at: Mapped[datetime] = mapped_column(TS, default=utcnow)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import re
 import uuid
 from typing import Literal
@@ -71,6 +72,9 @@ class ZoneIn(Strict):
     def _door_line(self):
         if self.kind == "door" and len(self.polygon) != 2:
             raise ValueError("door zones need exactly 2 points (the entry/exit line)")
+        if self.kind == "door" and math.hypot(self.polygon[1][0] - self.polygon[0][0],
+                                              self.polygon[1][1] - self.polygon[0][1]) < 0.05:
+            raise ValueError("door line is degenerate (points closer than 0.05 of the frame)")
         if self.kind != "door" and len(self.polygon) < 3:
             raise ValueError("non-door zones need >= 3 points")
         return self
@@ -164,4 +168,16 @@ class CrossingAssign(Strict):
 
 
 class EnrolIn(Strict):
-    crossing_id: uuid.UUID  # enrols that crossing's stored descriptor into the person's gallery
+    """Reference capture: a stored crossing, or a face detected on that camera's live frame (ADR-016)."""
+
+    crossing_id: uuid.UUID | None = None
+    camera_id: str | None = Field(default=None, pattern=r"^[a-z0-9][a-z0-9_-]{0,31}$")
+    box: tuple[float, float, float, float] | None = None  # xyxy pixels, to pick one of several faces in the frame
+
+    @model_validator(mode="after")
+    def _one_source(self):
+        if (self.crossing_id is None) == (self.camera_id is None):
+            raise ValueError("give exactly one of crossing_id or camera_id")
+        if self.box is not None and self.camera_id is None:
+            raise ValueError("box only picks a face on a camera capture")
+        return self

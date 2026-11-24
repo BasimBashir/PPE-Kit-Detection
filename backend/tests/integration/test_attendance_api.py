@@ -80,6 +80,31 @@ def test_door_zone_person_assign_enrol_and_report(client, sf):
     assert client.get("/api/v1/attendance/crossings?unknown=true", headers=admin).json()["total"] == 3
 
 
+def test_enrol_from_a_live_camera_frame(client, sf):
+    from types import SimpleNamespace
+
+    import cv2
+    import numpy as np
+
+    admin = login(client)
+    alice = client.post("/api/v1/attendance/persons", headers=admin, json={"name": "Alice"}).json()["id"]
+    url = f"/api/v1/attendance/persons/{alice}/gallery"
+    assert client.post(url, headers=admin, json={"camera_id": "cam01"}).status_code == 404  # no live frame
+
+    jpeg = cv2.imencode(".jpg", np.full((48, 64, 3), 128, np.uint8))[1].tobytes()
+    client.ctx.live.previews["cam01"] = {"jpeg": jpeg}
+    face = SimpleNamespace(image=None, score=0.9, angle="frontal")
+    stub = SimpleNamespace(faces=lambda img, box=None: [] if box is None else [face], embed=lambda f: [0.5, 0.5])
+    client.ctx.faces = stub  # the real engine downloads ONNX weights; the stub keeps this offline
+    assert client.post(url, headers=admin, json={"camera_id": "cam01"}).status_code == 422  # no face in frame
+    r = client.post(url, headers=admin, json={"camera_id": "cam01", "box": [1, 2, 30, 40]})
+    assert r.status_code == 200, r.text
+    assert r.json()["face_refs"] == 1 and r.json()["torso_refs"] == 0
+
+    stub.faces = lambda img, box=None: [face, face]  # two people in the door frame
+    assert client.post(url, headers=admin, json={"camera_id": "cam01"}).status_code == 409
+
+
 def test_attendance_roles_and_errors(client):
     admin = login(client)
     assert client.post("/api/v1/users", headers=admin,

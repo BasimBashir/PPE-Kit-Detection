@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+from app.attendance.faces import FaceEngine
 from app.attendance.identity import describe
 from app.config.settings import AttendanceConfig
 from app.ppe.types import Box
@@ -32,7 +33,9 @@ class Crossing:
     at: float  # wall clock of the processed frame
     person_box: Box
     image: np.ndarray  # privacy-masked frame (BGR) for the evidence crop
-    descriptor: list[float]
+    descriptor: list[float]  # torso histogram (raw frame) - the fallback when no face is visible
+    face: list[float] = field(default_factory=list)  # SFace embedding of the best face in the person box
+    face_angle: str = ""  # frontal | quarter | profile
 
 
 def side(p0: tuple[float, float], p1: tuple[float, float], point: tuple[float, float]) -> float:
@@ -51,6 +54,13 @@ class CrossingState:
     """Per-camera memory of which side each track was last firmly on. Cheap: two floats per active track."""
 
     _sides: dict[tuple[str, int], tuple[float, float]] = field(default_factory=dict)  # (zone, track) -> (side, mono)
+    faces: FaceEngine | None = None
+
+    def _face(self, image: np.ndarray, box: Box) -> tuple[list[float], str]:
+        if self.faces is None:
+            return [], ""
+        found = self.faces.faces(image, box)
+        return (self.faces.embed(found[0]), found[0].angle) if found else ([], "")
 
     def update(self, doors: Sequence[ZoneRuntime], frame: Frame, persons: Sequence,
                cfg: AttendanceConfig) -> list[Crossing]:
@@ -80,8 +90,9 @@ class CrossingState:
                     direction = "EXIT"
                 else:
                     continue
+                face, angle = self._face(frame.image, person.box)
                 out.append(Crossing(frame.camera_id, door.id, person.track_id, direction, frame.captured_at,
-                                    person.box, frame.image, describe(frame.image, person.box)))
+                                    person.box, frame.image, describe(frame.image, person.box), face, angle))
         stale = [k for k in self._sides if k not in seen and frame.captured_mono - self._sides[k][1] > MAX_GAP_S * 4]
         for k in stale:
             del self._sides[k]

@@ -11,11 +11,13 @@ import pytest
 from pydantic import ValidationError
 
 from app.attendance.crossing import MAX_GAP_S, CrossingState, side
-from app.attendance.identity import describe, match
+from app.attendance.faces import FRONTAL, PROFILE, QUARTER, angle_of
+from app.attendance.identity import FACE, TORSO, describe, entries, entry, match
 from app.attendance.report import outside_by_day
 from app.config.settings import AttendanceConfig
 from app.ppe.zones import ZoneRuntime
-from app.schemas.requests import ZoneIn
+from app.repositories.attendance import enrol_entries
+from app.schemas.requests import EnrolIn, ZoneIn
 from app.streaming.frame import Frame
 
 W = H = 64
@@ -78,20 +80,71 @@ def test_crossing_carries_crop_and_descriptor():
 
 def test_describe_is_empty_for_a_degenerate_crop_and_match_handles_it():
     assert describe(np.zeros((H, W, 3), np.uint8), (10, 10, 10, 10)) == []
-    assert match([], [(uuid.uuid4(), [1.0])], 0.0) is None
+    assert match([], [], "", [], AttendanceConfig()) is None
 
 
-def test_match_picks_the_closest_above_the_threshold():
+def test_legacy_bare_vector_galleries_read_as_torso():
+    assert entries([[1.0, 0.0]])[0]["kind"] == TORSO
+    assert entries([]) == []
+
+
+def test_angle_buckets_come_from_the_landmarks():
+    assert angle_of(0.0, 0.0) == FRONTAL
+    assert angle_of(0.0, 0.6) == QUARTER  # head down under a roof mount is not a frontal probe
+    assert angle_of(0.4, 0.0) == QUARTER
+    assert angle_of(0.8, 0.0) == PROFILE
+
+
+def test_face_match_loosens_its_threshold_as_the_face_turns():
+    probe = [0.4, float(np.sqrt(1 - 0.16))]  # cosine 0.40 to the reference below
+    pid = uuid.uuid4()
+    gallery = [(pid, entry(FACE, [1.0, 0.0], PROFILE))]
+    assert match([], probe, FRONTAL, gallery, AttendanceConfig()) is None  # 0.40 < 0.45
+    hit = match([], probe, QUARTER, gallery, AttendanceConfig())
+    assert hit and hit[0] == pid and hit[2] == FACE and hit[1] == pytest.approx(0.4)
+
+
+def test_face_match_needs_a_margin_over_the_runner_up():
+    a, b = uuid.uuid4(), uuid.uuid4()
+    gallery = [(a, entry(FACE, [1.0, 0.0], "")), (b, entry(FACE, [1.0, 0.01], ""))]
+    assert match([], [1.0, 0.0], FRONTAL, gallery, AttendanceConfig()) is None  # near-identical twins
+    assert match([], [1.0, 0.0], FRONTAL, gallery, AttendanceConfig(face_margin=0))[0] == a
+
+
+def test_face_is_preferred_and_torso_covers_only_a_missing_face():
     red = np.zeros((H, W, 3), np.uint8)
     red[20:40, 25:35] = (0, 0, 220)
+    a, b = uuid.uuid4(), uuid.uuid4()
+    gallery = [(a, entry(FACE, [1.0, 0.0], "")), (b, entry(TORSO, describe(red, (25, 20, 35, 40))))]
+    hit = match(describe(red, (25, 20, 35, 40)), [1.0, 0.0], FRONTAL, gallery, AttendanceConfig())
+    assert hit and hit[0] == a and hit[2] == FACE
+    hit = match(describe(red, (25, 20, 35, 40)), [], "", gallery, AttendanceConfig())
+    assert hit and hit[0] == b and hit[2] == TORSO
     blue = np.zeros((H, W, 3), np.uint8)
     blue[20:40, 25:35] = (220, 0, 0)
-    box = (25, 20, 35, 40)
-    a, b = uuid.uuid4(), uuid.uuid4()
-    gallery = [(a, describe(red, box)), (b, describe(blue, box))]
-    assert match(describe(red, box), gallery, 0.55)[0] == a
-    assert match(describe(red, box), gallery, 0.999)[0] == a  # identical histogram scores 1.0
-    assert match(describe(red, box), [(b, describe(blue, box))], 0.99) is None
+    assert match(describe(blue, (25, 20, 35, 40)), [], "", gallery, AttendanceConfig(match_threshold=0.99)) is None
+
+
+def test_enrol_entries_dedupes_caps_and_keeps_the_angle_spread():
+    p = SimpleNamespace(gallery=[])
+    for _ in range(3):
+        enrol_entries(p, [entry(FACE, [1.0], FRONTAL)], 4)
+    assert len(p.gallery) == 1  # the same reference is not stored twice
+    enrol_entries(p, [entry(FACE, [0.0, 1.0], PROFILE)], 4)
+    for i in range(5):
+        enrol_entries(p, [entry(FACE, [float(i), 2.0], FRONTAL)], 4)
+    assert len(p.gallery) == 4
+    assert sum(e["angle"] == PROFILE for e in p.gallery) == 1  # the over-represented frontal group was trimmed
+
+
+def test_enrol_in_needs_exactly_one_source():
+    EnrolIn(crossing_id=uuid.uuid4())
+    EnrolIn(camera_id="cam1", box=(1, 2, 3, 4))
+    bad = ({}, {"crossing_id": uuid.uuid4(), "camera_id": "cam1"},
+           {"crossing_id": uuid.uuid4(), "box": (1, 2, 3, 4)})
+    for body in bad:
+        with pytest.raises(ValidationError):
+            EnrolIn(**body)
 
 
 def test_outside_minutes_are_clipped_to_local_days_and_the_budget():

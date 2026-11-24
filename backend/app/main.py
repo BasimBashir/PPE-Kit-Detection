@@ -31,6 +31,7 @@ from app.api import (
     routes_ws,
 )
 from app.api.deps import ApiError, AppContext
+from app.attendance.faces import FaceEngine
 from app.config.settings import (
     REPO_ROOT,
     get_settings,
@@ -70,7 +71,8 @@ def build_context() -> AppContext:
     cfg = load_app_config(s)
     engine = make_engine(s.database_url, pool_size=10)
     return AppContext(settings=s, cfg=cfg, engine=engine, sf=make_session_factory(engine), live=LiveState(),
-                      hub=WebSocketHub(), evidence=EvidenceStore(s.resolve(s.ppe_evidence_dir), cfg.evidence))
+                      hub=WebSocketHub(), evidence=EvidenceStore(s.resolve(s.ppe_evidence_dir), cfg.evidence),
+                      faces=FaceEngine(s.resolve(s.ppe_models_dir), cfg.attendance.face_score))
 
 
 async def _resource_loop(c: AppContext) -> None:

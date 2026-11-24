@@ -10,6 +10,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
+from app.attendance import identity
 from app.db.base import SessionFactory, session_scope
 from app.models import Crossing, Person, PresenceInterval
 
@@ -34,15 +35,29 @@ def crossing_counts(s: Session) -> dict[uuid.UUID, int]:
     return dict(s.execute(select(Crossing.person_id, func.count(Crossing.id)).group_by(Crossing.person_id)).all())
 
 
-def gallery(s: Session, inside: set[uuid.UUID], direction: str) -> list[tuple[uuid.UUID, list[float]]]:
-    """(person, descriptor) pairs from people whose current state fits the crossing: an EXIT can only belong to
-    someone currently inside, an ENTER only to someone currently outside."""
+def gallery(s: Session, inside: set[uuid.UUID], direction: str) -> list[tuple[uuid.UUID, dict]]:
+    """(person, reference entry) pairs from people whose current state fits the crossing: an EXIT can only belong
+    to someone currently inside, an ENTER only to someone currently outside."""
     out = []
     for p in s.scalars(select(Person)):
         if (p.id in inside) != (direction == "EXIT"):
             continue
-        out.extend((p.id, vec) for vec in (p.gallery or []))
+        out.extend((p.id, e) for e in identity.entries(p.gallery))
     return out
+
+
+def enrol_entries(p: Person, new: list[dict], cap: int) -> None:
+    """Append reference entries (deduped) keeping the angle spread; over `cap`, drop the oldest of the most
+    represented kind/angle group, so re-enrolling one angle never evicts the others."""
+    gallery = [e for e in identity.entries(p.gallery) if e["vec"] not in [n["vec"] for n in new]]
+    gallery.extend(new)
+    while len(gallery) > cap:
+        groups: dict[tuple[str, str], int] = {}
+        for e in gallery:
+            groups[(e["kind"], e["angle"])] = groups.get((e["kind"], e["angle"]), 0) + 1
+        over = max(groups, key=groups.get)  # type: ignore[arg-type]
+        gallery.remove(next(e for e in gallery if (e["kind"], e["angle"]) == over))
+    p.gallery = gallery
 
 
 def insert_crossing(sf: SessionFactory, payload: dict) -> bool:

@@ -6,6 +6,7 @@ are seeded from rules.yaml into the database and edited through the API afterwar
 
 from __future__ import annotations
 
+import math
 import re
 from datetime import datetime
 from functools import lru_cache
@@ -191,12 +192,19 @@ class BehaviourConfig(BaseModel):
 
 
 class AttendanceConfig(BaseModel):
-    """Phase 5 door crossings (ADR-016). Thresholds for a deliberately cheap, non-biometric identity: an HSV torso
-    histogram matched against the operator-enrolled gallery. Wrong matches are corrected by re-assigning the
+    """Phase 5 door crossings (ADR-016). Identity is an enrolled face embedding (SFace) against the operator's
+    reference faces; the threshold loosens as the probe face turns away and needs a margin over the runner-up. The
+    HSV torso histogram is the fallback when no face is visible. Wrong matches are corrected by re-assigning the
     crossing in the UI; unmatched crossings stay in the Unknown bucket."""
 
-    match_threshold: float = Field(0.55, ge=0, le=1)  # cosine similarity; below this the crossing stays Unknown
-    gallery_max: int = Field(20, ge=1)  # descriptors kept per person
+    face_frontal: float = Field(0.45, ge=0, le=1)  # cosine similarity for a frontal probe
+    face_quarter: float = Field(0.38, ge=0, le=1)  # three-quarter / overhead view
+    face_profile: float = Field(0.32, ge=0, le=1)  # profile view - weak, tolerates the widest margin
+    face_margin: float = Field(0.02, ge=0, le=1)  # required lead over the runner-up person
+    face_score: float = Field(0.8, ge=0, le=1)  # below this YuNet detection score a face is ignored
+    continuity_s: float = Field(120.0, gt=0)  # a matched track keeps its person across this pass duration
+    match_threshold: float = Field(0.55, ge=0, le=1)  # torso fallback cosine; below this the crossing stays Unknown
+    gallery_max: int = Field(20, ge=1)  # reference entries kept per person
     line_deadband: float = Field(0.004, gt=0)  # normalised distance from the door line before a side counts
     site_tz: str = "UTC"  # IANA zone used to cut report days; sites with shifts should set this
 
@@ -478,6 +486,9 @@ class ZoneSeed(BaseModel):
             raise ValueError("door zones need exactly 2 points; other kinds need >= 3")
         if any(not (0 <= x <= 1 and 0 <= y <= 1) for x, y in self.polygon):
             raise ValueError("polygon needs normalized coords in [0, 1]")
+        if self.kind == "door" and math.hypot(self.polygon[1][0] - self.polygon[0][0],
+                                              self.polygon[1][1] - self.polygon[0][1]) < 0.05:
+            raise ValueError("door line is degenerate (points closer than 0.05 of the frame)")
         return self
 
 

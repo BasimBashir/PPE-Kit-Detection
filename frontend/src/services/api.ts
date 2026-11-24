@@ -97,7 +97,8 @@ export const api = {
   createPerson: (b: { name: string; allowed_minutes_per_day: number }) => post<Person>("/api/v1/attendance/persons", b),
   updatePerson: (id: string, b: { name?: string; allowed_minutes_per_day?: number }) => patch<Person>(`/api/v1/attendance/persons/${id}`, b),
   deletePerson: (id: string) => json<void>(`/api/v1/attendance/persons/${id}`, { method: "DELETE" }),
-  enrol: (personId: string, crossingId: string) => post<Person>(`/api/v1/attendance/persons/${personId}/gallery`, { crossing_id: crossingId }),
+  enrol: (personId: string, body: { crossing_id?: string; camera_id?: string; box?: [number, number, number, number] }) =>
+    post<Person>(`/api/v1/attendance/persons/${personId}/gallery`, body),
   crossings: (q: { person_id?: string; unknown?: boolean; limit?: number; offset?: number }) =>
     json<Page<Crossing>>(`/api/v1/attendance/crossings${eventQueryString(q)}`),
   assignCrossing: (id: string, personId: string | null) => patch<Crossing>(`/api/v1/attendance/crossings/${id}`, { person_id: personId }),
