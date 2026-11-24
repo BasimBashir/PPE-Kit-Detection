@@ -235,7 +235,7 @@ make down         # docker compose down
 | Last-layer fusion | logistic beats Laya on every metric (AUROC 0.9968 vs 0.9928); misses 4.7 % → 3.2 % at ≤ 2 % FAR | `docs/ml/fusion_eval.md` |
 | Distillation flywheel | runs end to end (export → retrain → holdout eval); no measured gain at 22–230 public labels — controls overlap | `docs/ml/distill_eval.md` |
 | Attendance identity (Phase 5) | **not measured on site footage** — logic covered by fixtures only (door geometry sides, deadband, track re-learn, angle buckets, per-angle thresholds, runner-up margin, face-over-torso, gallery cap, day clipping); per-angle accuracy limits and the labelling plan are stated, thresholds are defaults | `docs/decisions/ADR-016-attendance.md` |
-| Tests | backend 172 passed (unit + integration + GPU); frontend 17 passed; ruff + tsc clean | `docs/testing/test-report.md` |
+| Tests | backend 172 passed (unit + integration + GPU); frontend 20 passed; ruff + tsc clean | `docs/testing/test-report.md` |
 
 **These are desktop-GPU results — not edge-device results.** Followed up (measured, see the reports): classifier batching, TensorRT FP16, NVDEC probe, CPU-only profile; Phase 3 adds 4K streams + NVDEC (`docs/benchmarks/phase3-4k.md`). Still not done: DeepStream/on-device edge.
 

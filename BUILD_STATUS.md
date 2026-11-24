@@ -62,7 +62,7 @@ Licence: AGPL-3.0-or-later (user decision). Interview mapping: [docs/product/int
 | Teacher review (live, 351 public crops) | fused AUROC 0.972; 20/26 missed violations escalated; 0 suppressed; p95 7.9 s | docs/ml/teacher_eval.md |
 | Distillation (22/230 teacher labels, 3 seeds) | no measured gain vs control at this label volume | docs/ml/distill_eval.md |
 | TensorRT FP16 (measured) | 2.4× per-call at batch 1; 1.25-1.35× at production batches; NVDEC probed, not worth it | docs/benchmarks/phase2-performance.md |
-| Tests | backend 172 passed (unit + integration + GPU); frontend 17 passed; ruff + tsc clean | docs/testing/test-report.md |
+| Tests | backend 172 passed (unit + integration + GPU); frontend 20 passed; ruff + tsc clean | docs/testing/test-report.md |
 
 ## Known defects / limitations
 - **False compliance on caps/head wraps** (R16) and **no alerts on distant small workers** (cam03) on demo footage; the asynchronous teacher-review layer (ADR-013, off by default) is the designed mitigation — 20/26 of our missed violations were escalated in the live benchmark.
