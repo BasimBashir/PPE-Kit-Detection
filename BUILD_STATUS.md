@@ -8,7 +8,7 @@ Spec: [PPE_Intelligence_Master_Spec.md](PPE_Intelligence_Master_Spec.md) (full s
 Licence: AGPL-3.0-or-later (user decision). Interview mapping: [docs/product/interview-baseline.md](docs/product/interview-baseline.md).
 
 ## Session 2026-11-02 - state at end of session
-- Git: published 2026-11-03 at https://github.com/BasimBashir/PPE-Kit-Detection (`main`).
+- Git: published 2026-11-03 at https://github.com/BasimBashir/aegis-vision (`main`; renamed from PPE-Kit-Detection 2026-11-24, old URL redirects). Product name: **Aegis Vision** (was "PPE Intelligence").
 - Running: Docker services, simulator, application (for the soak test).
 - Environment: Windows 11, i5-12400F, RTX 3090, venv outside OneDrive (`UV_PROJECT_ENVIRONMENT`).
 
@@ -30,6 +30,8 @@ Licence: AGPL-3.0-or-later (user decision). Interview mapping: [docs/product/int
 | 12 Phase 3: multi-PPE rules + presets | PARTIAL | ADR-014; five items with mandatory/secondary rules, operator presets (API + UI), config-only item catalogue; network sharding `PPE_WORKER_SHARD` (unit-tested, off by default); items detector = plan C trained on Construction-PPE + HB1204, mAP50 0.851 on the unseen CPPE val (cross-dataset transfer gap flagged); 4K measured + sizing docs incl. hypothetical 25 fps full-rate table (docs/benchmarks/phase3-4k.md); NVDEC wired; live smoke VERIFIED (presets applied via API -> 5 rules hot-reloaded; 10x 4K dual-detector events with evidence + per-item overlay; gloves correctly UNKNOWN on wide clips, no false alerts) |
 
 | 13 Phase 4: behaviour checks (fall, fight, phone, stalling) | PARTIAL | ADR-015; behaviours are `ppe_class` rule checks on the existing state machine ("angry"/"not working" dropped by the user, generic accident parked); fall = fast transition + hold (unit-tested: slow lying/bending/squat never fire), fight = pair-keypoint GRU on CPU (val F1 0.65, cross-dataset 0.38 - MVP weights), phone = COCO class 67 over grown hand/head ROI, stalling = keypoint stillness (no ground truth, timer tests only); per-rule shift `schedule` (migration 0004, UI ScheduleEditor); 4K benchmark `p4_uhd_cams10_fps5_nvdec` = 13.8 processed fps (pair sequencer is the bottleneck, follow-up); verified end to end live in the running app - fall and fight confirmed on real test clips via the RTSP demo path with evidence persisted (fight needs `models.yaml fight_weights`, off by default) - `docs/ml/phase4-log.md` §8; fall/fight/phone accuracy measured on public datasets only - **no field claim**, site footage required |
+| 14 Phase 5: Time & Attendance (line crossing + face identity) | IMPLEMENTED | ADR-016; door line zones (migration 0005), YuNet+SFace enrolled-face matching (angle-aware, torso/track fallbacks), minutes-outside report; unit + attendance API integration tests (`docs/testing/test-report.md`); EXIT/ENTER gate fix 967d9a1; **not measured on site footage** |
+| 15 Phase 6: Per-Stream Analytics Profiles (0.6.0) | IMPLEMENTED | ADR-017; per-camera module selection gates the cascade (migration 0006); stream tiles show each selected check's verdict |
 
 ## Feature checklist (spec FR ids)
 | Area | Status | Notes |
@@ -60,7 +62,7 @@ Licence: AGPL-3.0-or-later (user decision). Interview mapping: [docs/product/int
 | Teacher review (live, 351 public crops) | fused AUROC 0.972; 20/26 missed violations escalated; 0 suppressed; p95 7.9 s | docs/ml/teacher_eval.md |
 | Distillation (22/230 teacher labels, 3 seeds) | no measured gain vs control at this label volume | docs/ml/distill_eval.md |
 | TensorRT FP16 (measured) | 2.4× per-call at batch 1; 1.25-1.35× at production batches; NVDEC probed, not worth it | docs/benchmarks/phase2-performance.md |
-| Tests | backend 98 passed (unit + integration + GPU); frontend 16 passed; ruff + tsc clean | docs/testing/test-report.md |
+| Tests | backend 172 passed (unit + integration + GPU); frontend 17 passed; ruff + tsc clean | docs/testing/test-report.md |
 
 ## Known defects / limitations
 - **False compliance on caps/head wraps** (R16) and **no alerts on distant small workers** (cam03) on demo footage; the asynchronous teacher-review layer (ADR-013, off by default) is the designed mitigation — 20/26 of our missed violations were escalated in the live benchmark.

@@ -1,7 +1,16 @@
 # Changelog
 
-## Unreleased
+## 0.6.0 - 2026-11-24
+Per-Stream Analytics Profiles ([ADR-017](docs/decisions/ADR-017-camera-module-selection.md)) and the product rename to
+**Aegis Vision**.
 
+- Each camera selects the checks it runs (PPE items, behaviours, person-only; migration 0006); the cascade skips
+  unselected inference stages, so a single-check stream runs at full target FPS. Stream tiles report each selected
+  check's live verdict.
+- Renamed **PPE Intelligence → Aegis Vision** (UI, API title, Grafana, docs) and the repository
+  PPE-Kit-Detection → aegis-vision; internal identifiers (compose project, Python/npm package, systemd unit) unchanged.
+  The code version (`app.__version__`, `pyproject.toml`, `package.json`) now tracks the release (was stuck at 0.1.0).
+- Attendance fix: an inverted EXIT/ENTER state gate left every EXIT unmatched.
 - Fight GRU weights retrained and committed (`models/fight_gru.pt`, LFS): the original MVP file was never
   committed (the `*.pt` ignore rule) and was lost with a worktree. Same pipeline, RLVS mirror data: val F1
   0.65 @ 0.45, SCFD cross-dataset F1 0.38 - same quality as the first run. The phone-stage detector

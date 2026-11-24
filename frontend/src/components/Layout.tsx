@@ -28,7 +28,7 @@ export function Layout() {
     <div className="shell">
       <a href="#main" className="skip">Skip to content</a>
       <header className="topbar">
-        <div className="brand"><span className="brand-mark" aria-hidden="true">◆</span> PPE Intelligence</div>
+        <div className="brand"><span className="brand-mark" aria-hidden="true">◆</span> Aegis Vision</div>
         <nav aria-label="Main">
           {NAV.filter((n) => (!n.role || user?.role === n.role) && (n.to !== "/demo" || m?.mode === "demo")).map((n) => (
             <NavLink key={n.to} to={n.to} end={n.to === "/"}>{n.label}</NavLink>

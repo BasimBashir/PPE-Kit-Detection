@@ -171,7 +171,7 @@ async def lifespan(app: FastAPI):
         c.live.worker_down = down_hook  # type: ignore[method-assign]
         c.supervisor = sup
         sup.start()
-    log.info("PPE Intelligence API %s ready (mode=%s)", __version__, c.cfg.mode)
+    log.info("Aegis Vision API %s ready (mode=%s)", __version__, c.cfg.mode)
     try:
         yield
     finally:
@@ -193,7 +193,7 @@ def _err(status: int, code: str, message: str, details=None) -> JSONResponse:
 
 
 def create_app(start_worker: bool = True, context: AppContext | None = None) -> FastAPI:
-    app = FastAPI(title="PPE Intelligence API", version=__version__, lifespan=lifespan,
+    app = FastAPI(title="Aegis Vision API", version=__version__, lifespan=lifespan,
                   docs_url="/api/docs", openapi_url="/api/openapi.json", redoc_url=None)
     app.state.ctx = context or build_context()
     app.state.start_worker = start_worker

@@ -1,4 +1,4 @@
-# ADR-015: Phase 4 - behaviour and safety checks (fall, fight, phone use, stalling) as rule-driven checks
+# ADR-015: Phase 4 Behavioural Safety Analytics - behaviour and safety checks (fall, fight, phone use, stalling) as rule-driven checks
 
 **Status:** ACCEPTED
 **Date:** 2026-11-23

@@ -1,8 +1,26 @@
-# PPE Intelligence — offline multi-camera PPE compliance analytics
+# Aegis Vision
+
+**Offline multi-camera video analytics for workplace safety (EHS): PPE compliance, behavioural safety and attendance.**
+
+![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue) ![Python 3.12](https://img.shields.io/badge/python-3.12-3776AB) ![React 19](https://img.shields.io/badge/react-19-61DAFB) ![Release 0.6.0](https://img.shields.io/badge/release-0.6.0-informational)
 
 An independent, fully working portfolio project: 10 RTSP camera streams → person + PPE detection (hard hat, safety vest, gloves, goggles, safety shoes) → per-camera tracking → body-region association → temporal confirmation → durable, deduplicated alerts with evidence → live dashboard, with real fault tolerance and measured performance. Operators set per site/zone which items are **mandatory** (live alert) or **secondary** (recorded only), as named presets; the item catalogue is configuration (`models.yaml ppe_items`), so new classes need no code. Each stream also carries a **module selection** — the operator picks which checks (PPE items, behaviours, person-only) that stream detects and processes, and the pipeline runs only those stages ([ADR-017](docs/decisions/ADR-017-camera-module-selection.md)). 4K streams are measured and supported (NVDEC; `docs/benchmarks/phase3-4k.md`).
 
 > Independent portfolio project inspired by a generic on-ship PPE-monitoring design exercise. It is **not** an ALTAVE product, uses no ALTAVE code, data or footage, and makes **no** safety-certification or field-accuracy claim. The demo cameras are **simulated** (stock clips looped through a local RTSP server) and the dashboard says so.
+
+## Platform modules by delivery phase
+
+Each product phase shipped as a tagged release with its own Architecture Decision Record. (The engineering build
+phases 0–13 in [BUILD_STATUS.md](BUILD_STATUS.md) track how the platform was built; this table is what it delivers.)
+
+| Phase | Release | Module | Capabilities | Status | Decision record |
+|---|---|---|---|---|---|
+| 1 | 0.1.0 | **Core Video Analytics Platform** | Multi-camera RTSP ingest (Video Management), Person Detection & Multi-Object Tracking (YOLO26 + ByteTrack), **PPE Compliance Monitoring** (hard hat), temporal confirmation, Alert & Evidence Management, Operations Dashboard, Observability (Prometheus/Grafana), RBAC | Verified (8 h soak, 13/13 fault scenarios) | [ADR-001…012](docs/decisions) |
+| 2 | 0.2.0 | **AI Alert Verification (Human-in-the-Loop)** | Asynchronous vision-language second opinion on every alert, calibrated score fusion, teacher–student distillation loop; never suppresses an alert | Verified (live benchmark) | [ADR-013](docs/decisions/ADR-013-teacher-review-and-distillation.md) |
+| 3 | 0.3.0 | **Multi-PPE Compliance & Site Policy Templates** | Hard hat, high-visibility vest, gloves, eye protection, safety footwear; mandatory vs. secondary items per site/zone; reusable policy presets; 4K + NVDEC; worker sharding | Verified live; cross-dataset accuracy gap open | [ADR-014](docs/decisions/ADR-014-multi-ppe-rules.md) |
+| 4 | 0.4.0 | **Behavioural Safety Analytics** | Fall Detection, Violence (Fight) Detection, Mobile-Phone Use Detection, Inactivity Detection; per-rule shift schedules | Fall + fight verified live; accuracy on public datasets only | [ADR-015](docs/decisions/ADR-015-behaviour-checks.md) |
+| 5 | 0.5.0 | **Time & Attendance (Line-Crossing Analytics + Face Recognition)** | Entry/exit line on a door camera, enrolled-face identity (angle-aware, torso + track fallbacks), minutes-outside report against a daily budget | Implemented, unit + API tested; not measured on site footage | [ADR-016](docs/decisions/ADR-016-attendance.md) |
+| 6 | 0.6.0 | **Per-Stream Analytics Profiles** | Each camera runs only the modules selected for it; unselected inference stages are skipped | Implemented, tested | [ADR-017](docs/decisions/ADR-017-camera-module-selection.md) |
 
 ## Quick start (one command)
 
@@ -17,7 +35,7 @@ An independent, fully working portfolio project: 10 RTSP camera streams → pers
 
 ```bash
 git lfs install
-git clone https://github.com/BasimBashir/PPE-Kit-Detection.git && cd PPE-Kit-Detection
+git clone https://github.com/BasimBashir/aegis-vision.git && cd aegis-vision
 python scripts/start_demo.py
 ```
 Cloned before installing Git LFS? Run `git lfs pull` in the repo — otherwise `models/*.pt` are small pointer files and the script stops with that hint.
@@ -85,17 +103,17 @@ flowchart LR
 
 - **Design documents** (17 + Mermaid sources): [docs/system-design](docs/system-design/README.md)
 - **Architecture Decision Records**: [docs/decisions](docs/decisions) (ADR-001…017)
-- **Phase 4 behaviour checks** (fall, fight, phone use during work hours, stalling) are rules like any PPE item - same
+- **Behavioural Safety Analytics (Phase 4)** (fall, fight, phone use during work hours, stalling) are rules like any PPE item - same
   state machine, evidence, schedule and UI: [ADR-015](docs/decisions/ADR-015-behaviour-checks.md), measured results and
   limits in [docs/ml/phase4-log.md](docs/ml/phase4-log.md). Fall and fight were verified end to end in the running app
   on real test clips (OmniFall / SCFD) via the RTSP demo path ([phase4-log §8](docs/ml/phase4-log.md)); fight alerts
   additionally need the weights wired in (`models.yaml fight_weights`, off by default)
-- **Phase 5 attendance** (who is outside, for how long, against a daily budget) from a two-point entry/exit line on a
+- **Time & Attendance (Phase 5)** (who is outside, for how long, against a daily budget) from a two-point entry/exit line on a
   door camera — identity by enrolled **face** references (angle-aware, torso + track-continuity fallbacks), enrolling
   from the live camera or a crossing: [ADR-016](docs/decisions/ADR-016-attendance.md) carries the mounting assumptions
   and the per-angle accuracy limits + measurement plan. Unknown crossings are kept with face and crop for later
   assign/enrol, and every correction rebuilds the derived intervals
-- **Per-stream module selection** — each camera declares which checks it runs (1 stream = 1 class in the demo,
+- **Per-Stream Analytics Profiles** — each camera declares which checks it runs (1 stream = 1 class in the demo,
   multi-select in production); the detector skips unselected stages entirely, so a single-check stream runs at full
   target FPS: [ADR-017](docs/decisions/ADR-017-camera-module-selection.md)
 - **Contracts / implementation plan**: [docs/implementation-plan.md](docs/implementation-plan.md)
@@ -107,7 +125,7 @@ flowchart LR
 
 | Path | Content |
 |---|---|
-| `backend/app` | camera, streaming, inference, tracking, ppe, alerts, evidence, api, workers, observability |
+| `backend/app` | camera, streaming, inference, tracking, ppe, behaviour, attendance, alerts, evidence, api, workers, observability |
 | `backend/tests` | unit (no I/O), integration (PostgreSQL, API, WebSocket, GPU-marked detector test) |
 | `frontend/` | React 19 + TypeScript dashboard (served by the API, fully offline) |
 | `scripts/` | `start_demo.py`, demo simulator + clip fetcher, dataset/training, benchmark / fault / soak harnesses |

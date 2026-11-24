@@ -3,7 +3,7 @@
 **Status:** VERIFIED (demo deployment) · **Related ADRs:** ADR-001, ADR-011 · **Modules:** whole system
 
 ## Purpose and scope
-Who and what interacts with PPE Intelligence.
+Who and what interacts with Aegis Vision.
 
 ## Assumptions
 - Single site (ship / plant), ~10 RTSP cameras behind a local NVR, no internet at runtime (FR-OFF-001).
@@ -12,10 +12,10 @@ Who and what interacts with PPE Intelligence.
 ## Diagram
 ```mermaid
 C4Context
-title PPE Intelligence - system context
+title Aegis Vision - system context
 Person(op, "Operator", "Monitors cameras, acknowledges / resolves violation events")
 Person(admin, "Administrator", "Configures cameras, rules, zones, retention")
-System(ppe, "PPE Intelligence", "Offline hard-hat compliance analytics for ~10 cameras")
+System(ppe, "Aegis Vision", "Offline workplace-safety video analytics (PPE, behaviour, attendance) for ~10 cameras")
 System_Ext(nvr, "NVR / IP cameras", "RTSP streams on the local network (simulated by MediaMTX in the demo)")
 System_Ext(mon, "Prometheus / Grafana", "Local metrics + alert rules (optional)")
 Rel(nvr, ppe, "RTSP (TCP/UDP)")
@@ -37,7 +37,7 @@ Source: [`diagrams/system-context.mmd`](diagrams/system-context.mmd)
 RTSP (in), HTTP/WebSocket dashboard (out), Prometheus text format (out). See [10](10-api-and-websocket-contracts.md).
 
 ## Data ownership
-PPE Intelligence owns events, evidence, configuration and audit data; cameras own the video (never recorded continuously).
+Aegis Vision owns events, evidence, configuration and audit data; cameras own the video (never recorded continuously).
 
 ## Concurrency / process boundaries
 See [01](01-container-architecture.md).

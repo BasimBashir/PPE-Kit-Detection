@@ -1,4 +1,4 @@
-# ADR-017: per-stream module selection — each camera runs only its selected checks
+# ADR-017: Phase 6 Per-Stream Analytics Profiles (0.6.0) — each camera runs only its selected checks
 
 **Status:** ACCEPTED
 **Date:** 2026-11-24

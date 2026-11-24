@@ -25,8 +25,8 @@ export function Login() {
   return (
     <main className="login">
       <form onSubmit={submit} className="card login-card" aria-labelledby="login-title">
-        <h1 id="login-title"><span className="brand-mark" aria-hidden="true">◆</span> PPE Intelligence</h1>
-        <p className="muted">Offline hard-hat compliance monitoring · independent portfolio demo</p>
+        <h1 id="login-title"><span className="brand-mark" aria-hidden="true">◆</span> Aegis Vision</h1>
+        <p className="muted">Workplace safety video analytics · independent portfolio demo</p>
         <label>Username<input value={username} onChange={(e) => setU(e.target.value)} autoComplete="username" required /></label>
         <label>Password<input type="password" value={password} onChange={(e) => setP(e.target.value)} autoComplete="current-password" required /></label>
         {err && <p className="error" role="alert">{err}</p>}

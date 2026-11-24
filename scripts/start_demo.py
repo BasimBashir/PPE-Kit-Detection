@@ -170,7 +170,7 @@ def main() -> int:
 
     pw = env().get("PPE_ADMIN_PASSWORD", "(see PPE_ADMIN_PASSWORD in .env)")
     print("\n" + "=" * 72)
-    print("  PPE Intelligence  ->  http://127.0.0.1:8000")
+    print("  Aegis Vision  ->  http://127.0.0.1:8000")
     print(f"  login: admin / {pw}        (local secret generated into .env)")
     print("  'Demo control' page: number of streams, camera/network/worker faults")
     print("  Grafana http://127.0.0.1:3000 (admin / GRAFANA_ADMIN_PASSWORD) · Prometheus http://127.0.0.1:9090")

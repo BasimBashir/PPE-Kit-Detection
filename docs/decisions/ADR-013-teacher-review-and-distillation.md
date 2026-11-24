@@ -1,4 +1,4 @@
-# ADR-013: asynchronous teacher review (Gemini Decisions / SystemOne) + logistic last-layer fusion, distillation flywheel
+# ADR-013: Phase 2 AI Alert Verification (Human-in-the-Loop) - asynchronous teacher review (Gemini Decisions / SystemOne) + logistic last-layer fusion, distillation flywheel
 
 **Status:** ACCEPTED  
 **Date:** 2026-11-18

@@ -1,4 +1,4 @@
-# Model card - PPE Intelligence detector stack v0.2
+# Model card - Aegis Vision detector stack v0.2
 
 ## Models
 | Role | File | Base | Training | Version recorded at runtime |

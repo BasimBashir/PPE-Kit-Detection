@@ -1,4 +1,4 @@
-# ADR-014: Phase 3 - multi-PPE (vest, gloves, goggles, safety shoes) on the Phase 1/2 architecture
+# ADR-014: Phase 3 Multi-PPE Compliance & Site Policy Templates - vest, gloves, goggles, safety shoes on the Phase 1/2 architecture
 
 **Status:** ACCEPTED  
 **Date:** 2026-11-20

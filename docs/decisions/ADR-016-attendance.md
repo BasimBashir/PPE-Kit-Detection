@@ -1,4 +1,4 @@
-# ADR-016: Phase 5 - person attendance from door crossings (face identity, enrolled persons)
+# ADR-016: Phase 5 Time & Attendance - person attendance from door crossings (face identity, enrolled persons)
 
 **Status:** ACCEPTED (revised 2026-11-24: the original "no faces" cut was lifted by the user)
 **Date:** 2026-11-24

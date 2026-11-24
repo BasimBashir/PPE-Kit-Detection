@@ -26,7 +26,7 @@ The supported form is a systemd unit that keeps Postgres (Docker) and the API up
 ```ini
 # /etc/systemd/system/ppe-intelligence.service
 [Unit]
-Description=PPE Intelligence API + pipeline worker
+Description=Aegis Vision API + pipeline worker
 After=docker.service network-online.target
 Requires=docker.service
 
