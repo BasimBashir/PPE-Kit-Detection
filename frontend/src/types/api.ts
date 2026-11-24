@@ -30,7 +30,19 @@ export interface CameraTestResult {
   fps: number | null; error: string | null;
 }
 
-export interface Zone { id: string; camera_id: string; name: string; kind: "monitor" | "ignore" | "privacy"; polygon: [number, number][]; enabled: boolean }
+// "door" = a 2-point entry/exit line, drawn in the direction people walk when entering (Phase 5, ADR-016)
+export interface Zone { id: string; camera_id: string; name: string; kind: "monitor" | "ignore" | "privacy" | "door"; polygon: [number, number][]; enabled: boolean }
+
+export interface Person { id: string; name: string; allowed_minutes_per_day: number; gallery_size: number; inside: boolean; crossings: number; created_at: string }
+export interface Crossing {
+  id: string; camera_id: string; camera_name: string | null; zone_id: string; track_id: number; direction: "ENTER" | "EXIT";
+  occurred_at: string; person_id: string | null; person_name: string | null; match_score: number | null; has_image: boolean;
+}
+export interface AttendanceDay { date: string; outside_minutes: number; allowed_minutes: number; over_minutes: number }
+export interface AttendanceReport {
+  person: Person; from: string; to: string; days: AttendanceDay[];
+  total: { outside_minutes: number; over_minutes: number };
+}
 
 export interface Thresholds { person_conf: number; present_conf: number; absent_conf: number; min_person_height_px: number; min_roi_px: number }
 export interface TemporalPolicy {

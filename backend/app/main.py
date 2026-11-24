@@ -21,7 +21,15 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app import __version__
 from app.alerts.dispatcher import OutboxDispatcher, local_sound_channel
-from app.api import routes_auth, routes_cameras, routes_demo, routes_events, routes_system, routes_ws
+from app.api import (
+    routes_attendance,
+    routes_auth,
+    routes_cameras,
+    routes_demo,
+    routes_events,
+    routes_system,
+    routes_ws,
+)
 from app.api.deps import ApiError, AppContext
 from app.config.settings import (
     REPO_ROOT,
@@ -218,7 +226,7 @@ def create_app(start_worker: bool = True, context: AppContext | None = None) -> 
         return resp
 
     for r in (routes_auth.router, routes_cameras.router, routes_events.router, routes_system.router,
-              routes_demo.router, routes_ws.router):
+              routes_demo.router, routes_attendance.router, routes_ws.router):
         app.include_router(r)
 
     @app.get("/metrics", include_in_schema=False)

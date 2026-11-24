@@ -4,10 +4,13 @@ from app.models.tables import (
     Base,
     Camera,
     CameraHealthRecord,
+    Crossing,
     Event,
     EventAction,
     ModelVersion,
+    Person,
     PPERule,
+    PresenceInterval,
     Session,
     Setting,
     SystemMetricsSnapshot,
@@ -18,6 +21,7 @@ from app.models.tables import (
 )
 
 __all__ = [
-    "AlertOutbox", "AuditLog", "Base", "Camera", "CameraHealthRecord", "Event", "EventAction", "ModelVersion",
-    "PPERule", "Session", "Setting", "SystemMetricsSnapshot", "TeacherReview", "User", "Zone", "utcnow",
+    "AlertOutbox", "AuditLog", "Base", "Camera", "CameraHealthRecord", "Crossing", "Event", "EventAction",
+    "ModelVersion", "PPERule", "Person", "PresenceInterval", "Session", "Setting", "SystemMetricsSnapshot",
+    "TeacherReview", "User", "Zone", "utcnow",
 ]

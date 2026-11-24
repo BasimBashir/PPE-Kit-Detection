@@ -24,7 +24,9 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import DBAPIError, OperationalError
 
 from app.alerts.spool import EventSpool
-from app.config.settings import BEHAVIOURS, AlertsConfig
+from app.attendance import identity
+from app.attendance.crossing import Crossing
+from app.config.settings import BEHAVIOURS, AlertsConfig, AttendanceConfig
 from app.db.base import SessionFactory, session_scope
 from app.evidence.annotate import annotate_violation
 from app.evidence.store import EvidenceStore
@@ -33,6 +35,7 @@ from app.observability import metrics as m
 from app.ppe.association import ITEMS, Associator
 from app.ppe.geometry import iou
 from app.ppe.types import Box
+from app.repositories import attendance as att_repo
 
 log = logging.getLogger(__name__)
 DB_DOWN = (OperationalError, DBAPIError)
@@ -115,9 +118,10 @@ class EventService(threading.Thread):
     def __init__(self, session_factory: SessionFactory, evidence: EvidenceStore, spool: EventSpool,
                  cfg: AlertsConfig, run_id: str, channels: list[str],
                  notify: Callable[[dict[str, Any]], None] | None = None, replay_interval_s: float = 2.0,
-                 teacher_enabled: bool = False):
+                 teacher_enabled: bool = False, attendance: AttendanceConfig | None = None):
         super().__init__(name="event-service", daemon=True)
         self.sf, self.evidence, self.spool, self.cfg = session_factory, evidence, spool, cfg
+        self.att_cfg = attendance or AttendanceConfig()
         self.run_id, self.channels = run_id, channels
         self.notify = notify if notify is not None else (lambda _msg: None)
         self.replay_interval_s = replay_interval_s
@@ -140,6 +144,10 @@ class EventService(threading.Thread):
 
     def submit_cleared(self, camera_id: str, track_id: int, rule_id: str, when: float) -> None:
         self._put(("cleared", (camera_id, track_id, rule_id, when)))
+
+    def submit_crossing(self, x: Crossing) -> None:
+        """A door crossing; droppable - crossings are reporting data, not alerts."""
+        self._put(("crossing", x), droppable=True)
 
     def submit_teacher_sample(self, camera_id: str, track_id: int, rule_id: str, zone_id: str | None, severity: str,
                               person_box: Box, crop: np.ndarray, p_model: float, captured_at: float,
@@ -177,7 +185,7 @@ class EventService(threading.Thread):
             if kind is not None:
                 try:
                     {"confirmed": self._confirmed, "still": self._still, "cleared": self._cleared,
-                     "sample": self._teacher_candidate}[kind](data)
+                     "sample": self._teacher_candidate, "crossing": self._crossing}[kind](data)
                 except Exception:
                     log.exception("event processing failed (%s)", kind)
                 finally:
@@ -370,6 +378,32 @@ class EventService(threading.Thread):
                           .values(last_seen_at=datetime.now(UTC), last_box=list(box)))
         except DB_DOWN:
             self._db_down()  # non-critical; the event itself is durable
+
+    def _crossing(self, x: Crossing) -> None:
+        """Match against enrolled people whose state fits the direction, store the crossing + crop, rebuild the
+        person's intervals. Skipped while the DB breaker is open (crossings are reporting data, not alerts)."""
+        if not self._db_open():
+            m.ppe_crossings_total.labels(x.direction, "dropped").inc()
+            return
+        try:
+            with session_scope(self.sf) as s:
+                best = identity.match(x.descriptor, att_repo.gallery(s, att_repo.inside_ids(s), x.direction),
+                                      self.att_cfg.match_threshold)
+                lo_x, lo_y = int(max(0, x.person_box[0])), int(max(0, x.person_box[1]))
+                crop = x.image[lo_y:int(x.person_box[3]), lo_x:int(x.person_box[2])]
+                rel, err = self.evidence.save(uuid.uuid4(), crop.copy(), x.at, prefix="crossings/")
+                new = att_repo.insert_crossing(self.sf, {
+                    "camera_id": x.camera_id, "zone_id": x.zone_id, "track_id": x.track_id,
+                    "direction": x.direction, "at": x.at, "person_id": best[0] if best else None,
+                    "match_score": best[1] if best else None, "descriptor": x.descriptor or None,
+                    "image_path": rel, "image_error": err})
+                if best and new:
+                    att_repo.rebuild_intervals(s, best[0])
+            self.db_ok = True
+            m.ppe_crossings_total.labels(x.direction, "matched" if best else "unknown").inc()
+        except DB_DOWN:
+            self._db_down()
+            m.ppe_crossings_total.labels(x.direction, "dropped").inc()
 
     def _cleared(self, data: tuple[str, int, str, float]) -> None:
         camera_id, track_id, rule_id, when = data

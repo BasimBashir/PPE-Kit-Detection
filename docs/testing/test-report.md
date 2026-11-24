@@ -1,12 +1,12 @@
 # Test report
 
-**Run date:** 2026-11-23 (Phase 4; Phase 3 and Phase 2 details below) · **Host:** Windows 11, i5-12400F, RTX 3090, Python 3.12.10, Node 24.16 ·
+**Run date:** 2026-11-24 (Phase 5; Phase 4 and earlier details below) · **Host:** Windows 11, i5-12400F, RTX 3090, Python 3.12.10, Node 24.16 ·
 **Commit state:** local runs; GitHub Actions CI re-runs backend tests (minus the GPU test), ruff, and the frontend type-check/tests/build on every push to `main` (promtool, alembic check and the live benchmarks are local only).
 
 ## Results (exact commands, actual output)
 | Suite | Command | Result |
 |---|---|---|
-| Backend unit + integration | `cd backend && uv run pytest tests -q -m "not gpu"` (Docker services up) | **148 passed** in 22 s (Phase 4 adds fall/stalling/phone assessor tests, schedule gating, behaviour worker wiring) |
+| Backend unit + integration | `cd backend && uv run pytest tests -q -m "not gpu"` (Docker services up) | **163 passed** in 25 s (Phase 5 adds door-geometry/descriptor/day-clipping unit tests, attendance API integration; Phase 4 added the behaviour assessors) |
 | Backend GPU (real frames through the cascade incl. the Phase 3 items stage) | `uv run pytest tests -q -m gpu` | **1 passed** |
 | Backend lint | `uv run ruff check backend/app backend/tests scripts` | clean |
 | Frontend types | `cd frontend && npx tsc --noEmit -p .` | clean |
@@ -50,6 +50,11 @@
 | Phase 4: behaviour config validation, schedule gating (off shift = no observations), worker wiring | `test_behaviour_config.py`, `test_behaviour_worker.py` |
 | Phase 3: secondary rule records the event with NO outbox row (no alert delivery) | `integration/test_persistence.py::test_secondary_rule_records_event_without_alert_delivery` |
 | Phase 3: preset API flow (create, apply idempotent, 422s, delete) | `integration/test_api.py::test_operator_presets_create_apply_and_validate` |
+| Phase 5: door line sides (positive side = walker's left of the draw direction, inside = x<0.5 for a top-to-bottom line), deadband, ENTER/EXIT need a firm previous side, track-gap re-learn | `test_attendance.py::test_side_sign_and_enter_exit`, `test_deadband_holds_side`, `test_track_gap_relearns_without_emitting` |
+| Phase 5: descriptor (256-d, unit norm) and threshold matching; Unknown never matches | `test_attendance.py::test_descriptor_is_unit_norm_256`, `test_match_threshold` |
+| Phase 5: minutes-outside clips to day bounds, open interval capped at now | `test_attendance.py::test_outside_by_day_clips_to_day`, `test_open_interval_capped_at_now` |
+| Phase 5: door zone needs exactly 2 points (422 otherwise) | `test_attendance.py::test_zone_door_requires_two_points` |
+| Phase 5: attendance API - person create/dup 409, assign then report (840/810 min over the 30-day range), enrol raises gallery size, unknown filter, roles | `integration/test_attendance_api.py` (2 tests) |
 
 ## Integration (spec 19.2)
 Video → detection pipeline on real frames (GPU test), DB persistence, outbox retry/backoff/FAILED, REST camera/event

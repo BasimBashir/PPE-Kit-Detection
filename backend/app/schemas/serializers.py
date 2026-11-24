@@ -87,3 +87,17 @@ def action_out(a: EventAction) -> dict[str, Any]:
 def audit_out(a: AuditLog) -> dict[str, Any]:
     return {"id": a.id, "actor": a.actor_id, "action": a.action, "resource": a.resource,
             "created_at": iso(a.created_at), "metadata": a.meta}
+
+
+def person_out(p: Any, inside: bool = False, crossings: int = 0) -> dict[str, Any]:
+    return {"id": str(p.id), "name": p.name, "allowed_minutes_per_day": p.allowed_minutes_per_day,
+            "gallery_size": len(p.gallery or []), "inside": inside, "crossings": crossings,
+            "created_at": iso(p.created_at), "updated_at": iso(p.updated_at)}
+
+
+def crossing_out(x: Any, camera_name: str | None = None, person_name: str | None = None) -> dict[str, Any]:
+    return {"id": str(x.id), "camera_id": x.camera_id, "camera_name": camera_name, "zone_id": x.zone_id,
+            "track_id": x.track_id, "direction": x.direction, "occurred_at": iso(x.occurred_at),
+            "person_id": str(x.person_id) if x.person_id else None, "person_name": person_name,
+            "match_score": None if x.match_score is None else round(x.match_score, 3),
+            "has_image": bool(x.image_path), "image_error": x.image_error}

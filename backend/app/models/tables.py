@@ -1,4 +1,7 @@
-"""SQLAlchemy 2 ORM models (implementation-plan 4.10, ADR-007). No identity / biometric fields exist by design."""
+"""SQLAlchemy 2 ORM models (implementation-plan 4.10, ADR-007).
+
+Events carry no identity; persons/crossings do (ADR-016).
+"""
 
 from __future__ import annotations
 
@@ -222,3 +225,48 @@ class Setting(Base):
     key: Mapped[str] = mapped_column(String(64), primary_key=True)
     value: Mapped[Any] = mapped_column(JSONB)
     updated_at: Mapped[datetime] = mapped_column(TS, default=utcnow, onupdate=utcnow)
+
+
+class Person(Base):
+    """Operator-enrolled identity for door crossings (Phase 5, ADR-016). Deliberately non-biometric: a display
+    name (no employee id) plus appearance descriptors - no faces, no embeddings from a ReID network."""
+
+    __tablename__ = "persons"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String(128), unique=True)
+    allowed_minutes_per_day: Mapped[int] = mapped_column(Integer, default=0)
+    gallery: Mapped[list[Any]] = mapped_column(JSONB, default=list)  # torso HSV histograms, operator-enrolled
+    created_at: Mapped[datetime] = mapped_column(TS, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(TS, default=utcnow, onupdate=utcnow)
+
+
+class Crossing(Base):
+    """One entry/exit through a door zone (4-point-free line). person_id NULL = Unknown bucket until the operator
+    assigns it; the descriptor stays so a crossing can be assigned or enrolled afterwards."""
+
+    __tablename__ = "crossings"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    idempotency_key: Mapped[str] = mapped_column(String(64), unique=True)
+    camera_id: Mapped[str] = mapped_column(ForeignKey("cameras.id", ondelete="CASCADE"), index=True)
+    zone_id: Mapped[str] = mapped_column(ForeignKey("zones.id", ondelete="CASCADE"), index=True)
+    track_id: Mapped[int] = mapped_column(Integer)
+    direction: Mapped[str] = mapped_column(String(5))  # ENTER | EXIT
+    occurred_at: Mapped[datetime] = mapped_column(TS, index=True)
+    person_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("persons.id", ondelete="SET NULL"), index=True)
+    match_score: Mapped[float | None] = mapped_column(Float)  # NULL until matched or assigned by hand
+    descriptor: Mapped[list[Any] | None] = mapped_column(JSONB)
+    image_path: Mapped[str | None] = mapped_column(Text)  # relative to the evidence root (crossings/...)
+    image_error: Mapped[str | None] = mapped_column(String(32))
+    created_at: Mapped[datetime] = mapped_column(TS, default=utcnow)
+    __table_args__ = (Index("ix_crossings_person_occurred", "person_id", "occurred_at"),)
+
+
+class PresenceInterval(Base):
+    """Derived from a person's crossings (EXIT opens, ENTER closes); rebuilt whenever an assignment changes."""
+
+    __tablename__ = "presence_intervals"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    person_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("persons.id", ondelete="CASCADE"), index=True)
+    started_at: Mapped[datetime] = mapped_column(TS)
+    ended_at: Mapped[datetime | None] = mapped_column(TS)
+    __table_args__ = (Index("ix_presence_person_started", "person_id", "started_at"),)

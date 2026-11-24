@@ -6,6 +6,7 @@ const NAV: { to: string; label: string; role?: "admin" }[] = [
   { to: "/", label: "Overview" },
   { to: "/cameras", label: "Camera wall" },
   { to: "/events", label: "Events" },
+  { to: "/attendance", label: "Attendance" },
   { to: "/health", label: "System health" },
   { to: "/config/cameras", label: "Cameras", role: "admin" },
   { to: "/config/rules", label: "Rules & settings", role: "admin" },

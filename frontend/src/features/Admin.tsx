@@ -254,8 +254,11 @@ export function RulesSettings() {
         <form className="form-grid" onSubmit={addZone}>
           <label>ID<input required value={zoneForm.id} onChange={(e) => setZoneForm({ ...zoneForm, id: e.target.value })} /></label>
           <label>Name<input required value={zoneForm.name} onChange={(e) => setZoneForm({ ...zoneForm, name: e.target.value })} /></label>
-          <label>Kind<select value={zoneForm.kind} onChange={(e) => setZoneForm({ ...zoneForm, kind: e.target.value as Zone["kind"] })}><option>monitor</option><option>ignore</option><option>privacy</option></select></label>
-          <label>Polygon (normalised x,y pairs)<input value={zoneForm.polygon} onChange={(e) => setZoneForm({ ...zoneForm, polygon: e.target.value })} /></label>
+          <label>Kind<select value={zoneForm.kind} onChange={(e) => {
+            const kind = e.target.value as Zone["kind"];
+            setZoneForm({ ...zoneForm, kind, polygon: kind === "door" ? "" : zoneForm.polygon });
+          }}><option>monitor</option><option>ignore</option><option>privacy</option><option>door</option></select></label>
+          <label>Polygon (normalised x,y pairs)<input value={zoneForm.polygon} placeholder={zoneForm.kind === "door" ? "click twice: line start, then the entering direction" : ""} onChange={(e) => setZoneForm({ ...zoneForm, polygon: e.target.value })} /></label>
           <button className="btn">Add zone</button>
         </form>
       </section>

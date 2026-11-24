@@ -190,6 +190,17 @@ class BehaviourConfig(BaseModel):
     fight_pair_dist: float = Field(1.2, gt=0)
 
 
+class AttendanceConfig(BaseModel):
+    """Phase 5 door crossings (ADR-016). Thresholds for a deliberately cheap, non-biometric identity: an HSV torso
+    histogram matched against the operator-enrolled gallery. Wrong matches are corrected by re-assigning the
+    crossing in the UI; unmatched crossings stay in the Unknown bucket."""
+
+    match_threshold: float = Field(0.55, ge=0, le=1)  # cosine similarity; below this the crossing stays Unknown
+    gallery_max: int = Field(20, ge=1)  # descriptors kept per person
+    line_deadband: float = Field(0.004, gt=0)  # normalised distance from the door line before a side counts
+    site_tz: str = "UTC"  # IANA zone used to cut report days; sites with shifts should set this
+
+
 class AppConfig(BaseModel):
     mode: Literal["demo", "live"] = "demo"  # demo => UI shows "SIMULATED SOURCES" banner
     pipeline: PipelineConfig = PipelineConfig()
@@ -201,6 +212,7 @@ class AppConfig(BaseModel):
     demo: DemoConfig = DemoConfig()
     teacher: TeacherConfig = TeacherConfig()
     behaviour: BehaviourConfig = BehaviourConfig()
+    attendance: AttendanceConfig = AttendanceConfig()
 
 
 # ---------------------------------------------------------------- models.yaml
@@ -455,16 +467,18 @@ class ZoneSeed(BaseModel):
     id: str = Field(pattern=r"^[a-z0-9][a-z0-9_-]{0,63}$")
     camera_id: str
     name: str
-    kind: Literal["monitor", "ignore", "privacy"] = "monitor"
-    polygon: list[tuple[float, float]]  # normalized 0..1 image coords, >= 3 points
+    kind: Literal["monitor", "ignore", "privacy", "door"] = "monitor"
+    polygon: list[tuple[float, float]]  # normalized 0..1 image coords; door = exactly 2 (line), else >= 3
     enabled: bool = True
 
-    @field_validator("polygon")
-    @classmethod
-    def _poly(cls, v: list[tuple[float, float]]) -> list[tuple[float, float]]:
-        if len(v) < 3 or any(not (0 <= x <= 1 and 0 <= y <= 1) for x, y in v):
-            raise ValueError("polygon needs >= 3 points with normalized coords in [0, 1]")
-        return v
+    @model_validator(mode="after")
+    def _poly(self):
+        n = len(self.polygon)
+        if (self.kind == "door" and n != 2) or (self.kind != "door" and n < 3):
+            raise ValueError("door zones need exactly 2 points; other kinds need >= 3")
+        if any(not (0 <= x <= 1 and 0 <= y <= 1) for x, y in self.polygon):
+            raise ValueError("polygon needs normalized coords in [0, 1]")
+        return self
 
 
 # ---------------------------------------------------------------- loaders

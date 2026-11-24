@@ -10,6 +10,28 @@
 - Demo tooling: annotated behaviour videos rendered from real test splits and synthetic poses, plus a standalone
   test-split scan CLI (`scripts/demo/behaviour_video.py`, `behaviour_synthetic_video.py`, `scan_test_segments.py`).
 
+## 0.5.0 - 2026-11-24
+Phase 5: attendance - a door-facing camera gets a two-point entry/exit line, crossings are matched to operator-enrolled
+people, and a report shows minutes outside per day against a per-person budget. Decision record
+[ADR-016](docs/decisions/ADR-016-attendance.md).
+
+- Door zones are a third zone shape (2 normalised points, drawn in the walking direction of an entry, migration 0005);
+  the crossing detector uses the tracked foot point with a deadband and a 5 s track-gap re-learn guard, and runs on the
+  privacy-masked frame.
+- Identity is deliberately **not** face recognition: a torso HSV histogram matched against an enrolled gallery, with
+  state-constrained matching (EXIT only from someone inside, ENTER only from someone outside). Unmatched crossings stay
+  in the Unknown bucket with their descriptor and crop so an operator can assign or enrol them later; every assignment
+  rebuilds derived presence intervals, so corrections heal.
+- Crossings ride the existing bounded `EventService` queue (droppable, idempotent sha256 key, breaker-aware metric
+  `ppe_crossings_total`); `events` is unchanged, names live on persons/crossings only.
+- API `/api/v1/attendance`: persons CRUD + gallery, crossings list/image/assign, and a day-clipped report (site time
+  zone, 92-day cap, per-day outside/over-budget minutes and totals). New **Attendance** screen with crops and Unknown
+  filter. Viewer reads, operator writes; zones stay admin.
+- Cut and documented: no per-hour budget, no crossing spool on DB outage, no WS live updates, enrolment via crossing
+  crops only. Identity accuracy is unmeasured on site footage - thresholds are defaults.
+- Tests: backend 163 passed (new door-geometry, descriptor and day-clipping unit tests + attendance API integration),
+  frontend lint/vitest/build green.
+
 ## 0.4.0 - 2026-11-23
 Phase 4: behaviour and safety checks (fall, fight, phone use during work hours, stalling) as rule-driven checks, per
 person, with per-rule shift schedules. Decision record [ADR-015](docs/decisions/ADR-015-behaviour-checks.md); measured
