@@ -6,7 +6,8 @@ Checked 2026-11-02; Phase 3 additions 2026-11-20. Code licence, weight licence a
 |---|---|---|---|---|---|
 | Ultralytics library 8.4.198 | training + inference | pypi.org/project/ultralytics | AGPL-3.0 (Enterprise licence available) | No (dependency) | Repo is AGPL-3.0-or-later to stay compatible |
 | `yolo26s-pose.pt` | person+keypoints | github.com/ultralytics/assets releases | AGPL-3.0 (Ultralytics) | Yes - `models/`, Git LFS | COCO pre-training |
-| `yolo26s.pt`, `yolo26n-cls.pt` | PPE fine-tune base; classifier base | github.com/ultralytics/assets releases | AGPL-3.0 (Ultralytics) | No - downloaded when training | COCO / ImageNet pre-training |
+| `yolo26s.pt` | PPE fine-tune base; Phase 4 phone-stage detector (COCO "cell phone" = class 67) | github.com/ultralytics/assets releases | AGPL-3.0 (Ultralytics) | Yes - `models/`, Git LFS | COCO pre-training |
+| `yolo26n-cls.pt` | classifier base | github.com/ultralytics/assets releases | AGPL-3.0 (Ultralytics) | No - downloaded when training | ImageNet pre-training |
 | `ppe_yolo26s.pt` (ours) | helmet/head detector | trained by `scripts/dataset/train_ppe_detector.py` | AGPL-3.0 (derivative of Ultralytics weights) + CC0 data | Yes - `models/`, Git LFS; reproducible | |
 | `head_cls_yolo26n.pt` (ours) | head-crop classifier | `scripts/dataset/train_head_classifier.py` | AGPL-3.0 + CC0 data | Yes - `models/`, Git LFS; reproducible | |
 | `ppe_items_yolo26m.pt` (ours, Phase 3) | vest/gloves/goggles/boots + bare regions | trained by `scripts/dataset/train_ppe_detector.py` on the two datasets below | AGPL-3.0 (derivative of Ultralytics weights) + CC BY 4.0 data | Yes - `models/`, Git LFS; reproducible | |

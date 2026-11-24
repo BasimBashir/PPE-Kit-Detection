@@ -41,6 +41,8 @@ runs/
 !models/ppe_yolo26s.pt
 !models/head_cls_yolo26n.pt
 !models/ppe_items_yolo26m.pt
+!models/yolo26s.pt
+!models/fight_gru.pt
 *.onnx
 *.engine
 
