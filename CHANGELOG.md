@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- Phase 4 verified live end to end: fall and fight rules confirmed **in the running app** on real test clips
+  (OmniFall syn / SCFD test) through the RTSP demo path, evidence snapshots persisted - `docs/ml/phase4-log.md` §8.
+  Fight alerts need `models.yaml fight_weights` (off by default, MVP weights).
+- Per-camera enable/disable of rules pinned by an integration test (`backend/tests/integration/test_rule_scope.py`):
+  a disabled rule of either check family never reaches the worker, and one state machine exists per (camera, rule).
+- Demo tooling: annotated behaviour videos rendered from real test splits and synthetic poses, plus a standalone
+  test-split scan CLI (`scripts/demo/behaviour_video.py`, `behaviour_synthetic_video.py`, `scan_test_segments.py`).
+
 ## 0.4.0 - 2026-11-23
 Phase 4: behaviour and safety checks (fall, fight, phone use during work hours, stalling) as rule-driven checks, per
 person, with per-rule shift schedules. Decision record [ADR-015](docs/decisions/ADR-015-behaviour-checks.md); measured

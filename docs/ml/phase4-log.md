@@ -120,3 +120,27 @@ simulator; RTX 3090; 60 s measured, 25 s warmup). Phase 3 baseline in the same t
 - **RGB video transformer for fights:** not tried; GPU cost on the inference path, no measured need yet.
 - **Track stitching:** deferred; the fall misses are dominated by pose quality/domain shift, not ID switches.
 - **Teacher review of behaviours:** not built; the rubric is PPE-only.
+
+## 8. Live end-to-end verification (2026-11-24)
+
+The classes were also fired **inside the running app**, not only in the offline replays: real test clips published
+as camera streams through the demo RTSP path (MediaMTX), per-camera behaviour rules created in the Rules UI,
+
+- **fall** (`fall-cam01` on cam01, OmniFall syn `fall_to_161`): PERSON DOWN confirmed - 5 of 5 decisive observations,
+  mean confidence 0.99, first seen -> confirmed 3.21 s, evidence snapshot persisted with the banner drawn in.
+- **fight** (`fight-cam02` on cam02, SCFD test `fi003`): FIGHT confirmed - 3 decisive votes, evidence snapshot
+  persisted, and the event's model list carries `fight: fight_gru@<sha>`.
+
+Both took the production path (assessor -> state machine -> event -> evidence -> dashboard) with zero worker errors.
+Phone and stalling were not fired live: no real phone-use video exists (section 1) and stalling's production hold is
+600 s - their proof stays the synthetic demos and timer tests.
+
+Operational notes:
+
+- **Fight weights are off by default** (`fight_weights` is commented out in `models.example.yaml`): without it fight
+  rules stay UNCERTAIN by design. Enabling it in a local `configs/models.yaml` loads `models/fight_gru.pt` and fight
+  rules start confirming; the MVP-weights caveat in section 7 still applies.
+- The raw OmniFall clips break `ffmpeg -stream_loop` (broken fps metadata; OpenCV reports fps = -1 - the same reason
+  the demo renderer derives fps from duration). Re-encode before looping one as a camera stream
+  (`ffmpeg -i in.mp4 -r 25 -pix_fmt yuv420p out.mp4`); otherwise the stream publisher crash-loops (77 restarts
+  observed; the app's backoff and OFFLINE health state handled it as designed and recovered after the re-encode).
