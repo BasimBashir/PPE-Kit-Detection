@@ -1,6 +1,7 @@
 // Typed REST client: bearer auth from sessionStorage, structured error parsing (FR-API-004).
 import type {
-  Camera, CameraCreate, CameraTestResult, CameraUpdate, EventDetail, FrameOut, MetricsSummary, Page, PPEEvent,
+  AttendanceReport, Camera, CameraCreate, CameraTestResult, CameraUpdate, Crossing, EventDetail, FrameOut,
+  MetricsSummary, Page, Person, PPEEvent,
   PPEItemInfo, Preset, Role, Rule, Schedule, SettingsOut, TemporalPolicy, Thresholds, User, Zone,
 } from "../types/api";
 
@@ -63,7 +64,7 @@ async function json<T>(path: string, init: RequestInit = {}): Promise<T> {
 const post = <T,>(path: string, body?: unknown) => json<T>(path, { method: "POST", body: body === undefined ? undefined : JSON.stringify(body) });
 const patch = <T,>(path: string, body: unknown) => json<T>(path, { method: "PATCH", body: JSON.stringify(body) });
 
-export interface EventQuery { camera_id?: string; status?: string; rule_id?: string; feedback?: string; since?: string; until?: string; limit?: number; offset?: number }
+export interface EventQuery { camera_id?: string; status?: string; rule_id?: string; feedback?: string; since?: string; until?: string; limit?: number; offset?: number; person_id?: string; unknown?: boolean; start?: string; end?: string }
 
 export function eventQueryString(q: EventQuery): string {
   const p = new URLSearchParams();
@@ -92,6 +93,17 @@ export const api = {
   zones: (id: string) => json<Zone[]>(`/api/v1/cameras/${id}/zones`),
   createZone: (cam: string, z: Omit<Zone, "camera_id">) => post<Zone>(`/api/v1/cameras/${cam}/zones`, z),
   deleteZone: (id: string) => json<void>(`/api/v1/zones/${id}`, { method: "DELETE" }),
+  persons: () => json<Person[]>("/api/v1/attendance/persons"),
+  createPerson: (b: { name: string; allowed_minutes_per_day: number }) => post<Person>("/api/v1/attendance/persons", b),
+  updatePerson: (id: string, b: { name?: string; allowed_minutes_per_day?: number }) => patch<Person>(`/api/v1/attendance/persons/${id}`, b),
+  deletePerson: (id: string) => json<void>(`/api/v1/attendance/persons/${id}`, { method: "DELETE" }),
+  enrol: (personId: string, body: { crossing_id?: string; camera_id?: string; box?: [number, number, number, number] }) =>
+    post<Person>(`/api/v1/attendance/persons/${personId}/gallery`, body),
+  crossings: (q: { person_id?: string; unknown?: boolean; limit?: number; offset?: number }) =>
+    json<Page<Crossing>>(`/api/v1/attendance/crossings${eventQueryString(q)}`),
+  assignCrossing: (id: string, personId: string | null) => patch<Crossing>(`/api/v1/attendance/crossings/${id}`, { person_id: personId }),
+  attendanceReport: (personId: string, start: string, end: string) =>
+    json<AttendanceReport>(`/api/v1/attendance/report${eventQueryString({ person_id: personId, start, end })}`),
   rules: () => json<Rule[]>("/api/v1/rules"),
   patchRule: (id: string, b: { thresholds?: Thresholds; temporal_policy?: TemporalPolicy; enabled?: boolean; mandatory?: boolean; severity?: string; schedule?: Schedule | null }) =>
     patch<Rule>(`/api/v1/rules/${id}`, b),

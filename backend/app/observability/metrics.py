@@ -67,6 +67,8 @@ ppe_events_deduplicated_total = Counter(
 ppe_events_spooled_total = Counter("ppe_events_spooled_total", "Events written to the local spool (DB down)")
 ppe_spool_pending = Gauge("ppe_spool_pending", "Spooled events awaiting replay")
 ppe_evidence_failures_total = Counter("ppe_evidence_failures_total", "Evidence snapshot failures", ["reason"])
+ppe_crossings_total = Counter("ppe_crossings_total", "Door crossings (result: matched|unknown|dropped)",
+                              ["direction", "result"])
 ppe_event_confirmation_latency_seconds = Histogram(
     "ppe_event_confirmation_latency_seconds",
     "Confirming frame decoded -> event persisted (host-ingest-to-persisted)",

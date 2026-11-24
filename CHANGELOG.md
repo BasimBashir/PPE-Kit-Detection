@@ -10,6 +10,37 @@
 - Demo tooling: annotated behaviour videos rendered from real test splits and synthetic poses, plus a standalone
   test-split scan CLI (`scripts/demo/behaviour_video.py`, `behaviour_synthetic_video.py`, `scan_test_segments.py`).
 
+## 0.5.0 - 2026-11-24
+Phase 5: attendance - a door-facing camera gets a two-point entry/exit line, crossings are matched to operator-enrolled
+people by face, and a report shows minutes outside per day against a per-person budget. Decision record
+[ADR-016](docs/decisions/ADR-016-attendance.md) (revised: face identity, since the earlier "no faces" cut was lifted).
+
+- Door zones are a third zone shape (2 normalised points, drawn in the walking direction of an entry, IN/OUT side
+  shown while drawing, editable seeded default line, server-validated 2 points/inside the frame/non-degenerate,
+  migration 0005); the crossing detector uses the tracked foot point with a deadband and a 5 s track-gap re-learn
+  guard, and runs on the privacy-masked frame (the crossing/face itself on the unmasked one).
+- Identity is **face-based enrolment**: YuNet detects the face in the person's box and SFace embeds it (OpenCV zoo
+  weights, MIT / Apache-2.0, fetched on first use, no new dependency); matching is angle-aware (frontal/quarter/
+  profile thresholds from the landmarks, runner-up margin) over a per-person gallery of several reference captures.
+  A face turned away falls back to the torso histogram and, within 120 s, to the person already matched on that track;
+  each match records how it matched (`matched_by`).
+- Enrolment paths: capture a detected face on the camera's live frame (box picker for several faces) or any stored
+  crossing (face + torso); the same person can be re-enrolled from other angles, deleted to retire. Unmatched
+  crossings stay in the Unknown bucket with face/angle/descriptor/crop so they can be assigned or enrolled later;
+  every assignment rebuilds derived presence intervals, so corrections heal.
+- Crossings ride the existing bounded `EventService` queue (droppable, idempotent sha256 key, breaker-aware metric
+  `ppe_crossings_total`); `events` is unchanged, names live on persons/crossings only.
+- API `/api/v1/attendance`: persons CRUD, gallery enrolment (crossing or camera+box), crossings list/image/assign,
+  and a day-clipped report (site time zone, 92-day cap, per-day outside/over-budget minutes and totals). New
+  **Attendance** screen with crops, reference counts, capture panel and Unknown filter. Viewer reads, operator
+  writes; zones stay admin.
+- Cut and documented: no per-hour budget, no crossing spool on DB outage, no WS live updates, no bulk roster import,
+  no per-camera threshold calibration. Mounting assumptions and the per-angle accuracy limits + measurement plan are
+  in ADR-016; thresholds remain defaults until labelled door footage exists.
+- Tests: backend suite green (angle buckets, threshold loosening, runner-up margin, face-over-torso preference,
+  gallery dedupe/eviction, door-line validation, enrol-from-camera 404/422/409 + attendance API integration),
+  frontend lint/vitest/build green.
+
 ## 0.4.0 - 2026-11-23
 Phase 4: behaviour and safety checks (fall, fight, phone use during work hours, stalling) as rule-driven checks, per
 person, with per-rule shift schedules. Decision record [ADR-015](docs/decisions/ADR-015-behaviour-checks.md); measured

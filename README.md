@@ -83,12 +83,17 @@ flowchart LR
 ```
 
 - **Design documents** (17 + Mermaid sources): [docs/system-design](docs/system-design/README.md)
-- **Architecture Decision Records**: [docs/decisions](docs/decisions) (ADR-001…015)
+- **Architecture Decision Records**: [docs/decisions](docs/decisions) (ADR-001…016)
 - **Phase 4 behaviour checks** (fall, fight, phone use during work hours, stalling) are rules like any PPE item - same
   state machine, evidence, schedule and UI: [ADR-015](docs/decisions/ADR-015-behaviour-checks.md), measured results and
   limits in [docs/ml/phase4-log.md](docs/ml/phase4-log.md). Fall and fight were verified end to end in the running app
   on real test clips (OmniFall / SCFD) via the RTSP demo path ([phase4-log §8](docs/ml/phase4-log.md)); fight alerts
   additionally need the weights wired in (`models.yaml fight_weights`, off by default)
+- **Phase 5 attendance** (who is outside, for how long, against a daily budget) from a two-point entry/exit line on a
+  door camera — identity by enrolled **face** references (angle-aware, torso + track-continuity fallbacks), enrolling
+  from the live camera or a crossing: [ADR-016](docs/decisions/ADR-016-attendance.md) carries the mounting assumptions
+  and the per-angle accuracy limits + measurement plan. Unknown crossings are kept with face and crop for later
+  assign/enrol, and every correction rebuilds the derived intervals
 - **Contracts / implementation plan**: [docs/implementation-plan.md](docs/implementation-plan.md)
 - **From the interview whiteboard to this implementation**: [docs/product/interview-baseline.md](docs/product/interview-baseline.md) maps every element of the original design exercise to what is implemented and the evidence for it — including the corrections (pose models do not track → ByteTrack per camera; IoU on the top 10–15 % of the box → keypoint head ROI with global matching; OBB not justified; frame counts → N-of-M decisive votes with seconds made explicit; "5k images ⇒ 80 % recall" and "1 FP / 2 h" not claimed; edge hardware not assumed; frozen-backbone fine-tuning measured, not assumed).
 
@@ -207,7 +212,8 @@ make down         # docker compose down
 | Teacher review (Gemini, live) | fused AUROC 0.972 vs 0.966 classifier-alone; 20/26 of our missed violations escalated; **0 alerts suppressed**; p95 7.9 s (async) | `docs/ml/teacher_eval.md` |
 | Last-layer fusion | logistic beats Laya on every metric (AUROC 0.9968 vs 0.9928); misses 4.7 % → 3.2 % at ≤ 2 % FAR | `docs/ml/fusion_eval.md` |
 | Distillation flywheel | runs end to end (export → retrain → holdout eval); no measured gain at 22–230 public labels — controls overlap | `docs/ml/distill_eval.md` |
-| Tests | backend 116 passed (unit + integration + GPU); frontend 16 passed; ruff + tsc clean | `docs/testing/test-report.md` |
+| Attendance identity (Phase 5) | **not measured on site footage** — logic covered by fixtures only (door geometry sides, deadband, track re-learn, angle buckets, per-angle thresholds, runner-up margin, face-over-torso, gallery cap, day clipping); per-angle accuracy limits and the labelling plan are stated, thresholds are defaults | `docs/decisions/ADR-016-attendance.md` |
+| Tests | backend 163 passed (unit + integration + GPU); frontend 17 passed; ruff + tsc clean | `docs/testing/test-report.md` |
 
 **These are desktop-GPU results — not edge-device results.** Followed up (measured, see the reports): classifier batching, TensorRT FP16, NVDEC probe, CPU-only profile; Phase 3 adds 4K streams + NVDEC (`docs/benchmarks/phase3-4k.md`). Still not done: DeepStream/on-device edge.
 
@@ -220,6 +226,7 @@ See the full analysis: [docs/benchmarks/README.md](docs/benchmarks/README.md)
 - **Observed missed violations:** on the demo streams, caps and head wraps are accepted as hard hats (metal-workshop camera: 0 alerts although nobody wears one) and distant, small workers rarely reach confirmation. The asynchronous teacher-review layer (ADR-013, off by default) is the designed mitigation; hard-negative training data is the next step ([analysis](docs/benchmarks/README.md)).
 - **Demo footage is stock video** of construction sites and factories, not ship cameras; detector training data are 416 px construction close-ups (domain gap). **No field accuracy, recall or false-alarm-rate claim is made.**
 - **Behaviour checks (Phase 4) are MVP**: fall/fight/phone are measured on public datasets only (fall cross-domain recall is low — see `docs/ml/phase4-log.md`), fight weights must be retrained on client footage, and stalling has no ground truth, so only its timer logic is tested. No behaviour rules are seeded by default, and fight rules additionally need the trained weights wired in (`models.yaml fight_weights`, MVP demo weights); they need site data plus a Gulf privacy review before deployment.
+- **Attendance (Phase 5) identity is face-based but unmeasured on site footage**: the SFace thresholds per angle are defaults, a profile or steep overhead view is a weak match (torso/track fallbacks carry it), two similar people can trade a crossing until re-assigned, and the mounting assumptions only cover side-wall and roof-top cameras that see the door clearly — see [ADR-016](docs/decisions/ADR-016-attendance.md). Crossings are dropped while the DB breaker is open (no spool), the budget is per day only, and there are no live crossing updates.
 - **Benchmarks are from one desktop RTX 3090** — not an edge device. TensorRT / NVDEC / DeepStream not implemented.
 - Constant network latency is not detectable without trusted camera timestamps (jitter is).
 - Cooldown/dedupe memory is re-seeded from recent events when the worker restarts, matching on person-box overlap only (head positions are not persisted); if the database is down at worker start it starts empty and a duplicate alert after a crash is still possible.

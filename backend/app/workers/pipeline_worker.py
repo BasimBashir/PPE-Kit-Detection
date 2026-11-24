@@ -27,6 +27,8 @@ from sqlalchemy import select
 
 from app.alerts.event_service import ConfirmedViolation, EventService
 from app.alerts.spool import EventSpool
+from app.attendance.crossing import CrossingState
+from app.attendance.faces import FaceEngine
 from app.behaviour import make_behaviour_assessor
 from app.behaviour.fight import FightModel
 from app.camera.health import CameraHealth
@@ -122,7 +124,10 @@ class PipelineWorker:
         self.spool = EventSpool(settings.resolve(settings.ppe_spool_dir))
         channels = ["dashboard"] + (["local_sound"] if app_cfg.alerts.local_sound_enabled else [])
         self.events = EventService(self.sf, self.evidence, self.spool, app_cfg.alerts, self.run_id, channels,
-                                   notify=self._send, teacher_enabled=app_cfg.teacher.enabled)
+                                   notify=self._send, teacher_enabled=app_cfg.teacher.enabled,
+                                   attendance=app_cfg.attendance)
+        self.crossings = CrossingState(faces=FaceEngine(settings.resolve(settings.ppe_models_dir),
+                                                        app_cfg.attendance.face_score))
         self.teacher_sample_rate = app_cfg.teacher.compliant_sample_rate if app_cfg.teacher.enabled else 0.0
         self.cond = threading.Condition()
         self.cams: dict[str, CamRuntime] = {}
@@ -336,6 +341,14 @@ class PipelineWorker:
         persons = [d for d in dets if d.cls == "person"]
         tracked = cr.tracker.update(persons, frame)  # type: ignore[union-attr]
         tracked = filter_ignored(tracked, cr.zones, frame.width, frame.height)
+        doors = [z for z in cr.zones if z.enabled and z.kind == "door"]
+        if doors:
+            # identity reads the unmasked frame (a privacy mask pixelates the face); only the stored crop is masked
+            crossings = self.crossings.update(doors, frame, tracked, self.cfg.attendance)
+            frame.image = apply_privacy_masks(frame.image, cr.zones)  # masked once, reused by _decide's evidence
+            for x in crossings:
+                x.image = frame.image
+                self.events.submit_crossing(x)
         t1 = time.perf_counter()
         self.stage_ms["tracking"].add(1000 * (t1 - t0))
         m.inference_duration_seconds.labels("tracking").observe(t1 - t0)

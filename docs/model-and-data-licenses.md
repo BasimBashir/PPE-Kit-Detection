@@ -28,6 +28,13 @@ Checked 2026-11-02; Phase 3 additions 2026-11-20. Code licence, weight licence a
 | COCO val2017 | phone-stage proxy eval | cocodataset.org | annotations CC BY 4.0; images under Flickr terms | No | **Eval only** |
 | `fight_gru.pt` (ours) | fight classifier | `scripts/ml/train_fight.py` on RLVS | AGPL-3.0 code; training data **not** commercially licensed | Yes - `models/`, Git LFS | **MVP weights**: retrain before commercial deployment |
 
+### Phase 5 additions (2026-11-24, ADR-016 revision)
+
+| Asset | Used for | Source | Licence | Redistributed in this repo? | Notes |
+|---|---|---|---|---|---|
+| YuNet `face_detection_yunet_2023mar.onnx` | face detection at a door crossing (attendance identity) | github.com/opencv/opencv_zoo (ShiqiYu 2020) | MIT (zoo LICENSE, checked 2026-11-24) | No - downloaded into the models dir on first use (`app/attendance/faces.py`) | Runs through the already-installed OpenCV `FaceDetectorYN`; no new dependency |
+| SFace `face_recognition_sface_2021dec.onnx` | face embedding for attendance identity | github.com/opencv/opencv_zoo | Apache-2.0 (zoo LICENSE for the model, checked 2026-11-24) | No - downloaded on first use | Frontally trained; angle-aware thresholds compensate, measured plan in ADR-016 |
+
 ## Conclusions
 - Publishing this repository under AGPL-3.0 is compatible with every component above.
 - A **closed-source or commercial deployment** would require an Ultralytics Enterprise licence or replacing the detector

@@ -4,7 +4,7 @@ import { imageUrl } from "../services/api";
 import type { Zone } from "../types/api";
 
 const W = 640;
-const KIND_COLOR: Record<Zone["kind"], string> = { monitor: "#3987e5", ignore: "#9a9993", privacy: "#8e44ad" };
+const KIND_COLOR: Record<Zone["kind"], string> = { monitor: "#3987e5", ignore: "#9a9993", privacy: "#8e44ad", door: "#e5a239" };
 const parse = (p: string) => p.trim().split(/\s+/).filter(Boolean).map((s) => s.split(",").map(Number) as [number, number]);
 const fmt = (pts: [number, number][]) => pts.map((p) => p.join(",")).join(" ");
 
@@ -43,6 +43,16 @@ export function ZoneDrawer({ cameraId, polygon, onChange, existing, draftKind }:
     ctx.stroke();
     ctx.fillStyle = c;
     for (const [x, y] of pts) { ctx.beginPath(); ctx.arc(x * W, y * h, 3, 0, Math.PI * 2); ctx.fill(); }
+    if (draftKind === "door" && pts.length === 2) {
+      // second point is the walking direction when entering: positive side = inside
+      const [a, b] = pts;
+      const dx = b[0] - a[0], dy = b[1] - a[1];
+      const n = Math.hypot(dx, dy) || 1;
+      const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+      ctx.font = "bold 12px system-ui, sans-serif";
+      ctx.fillText("IN", (mx - (dy / n) * 0.03) * W, (my + (dx / n) * 0.03) * h);
+      ctx.fillText("OUT", (mx + (dy / n) * 0.03) * W, (my - (dx / n) * 0.03) * h);
+    }
   };
 
   useEffect(() => {
@@ -78,7 +88,8 @@ export function ZoneDrawer({ cameraId, polygon, onChange, existing, draftKind }:
     const x = Math.round(((e.clientX - r.left) / r.width) * 1000) / 1000;
     const y = Math.round(((e.clientY - r.top) / r.height) * 1000) / 1000;
     const nx = Math.min(Math.max(x, 0), 1), ny = Math.min(Math.max(y, 0), 1);
-    onChange(fmt([...parse(polygon), [nx, ny]]));
+    const pts = parse(polygon);
+    onChange(draftKind === "door" && pts.length >= 2 ? fmt([[nx, ny]]) : fmt([...pts, [nx, ny]]));
   };
 
   const n = parse(polygon).length;

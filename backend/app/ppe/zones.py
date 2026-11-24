@@ -16,7 +16,7 @@ class ZoneRuntime:
     id: str
     camera_id: str
     name: str
-    kind: str  # monitor | ignore | privacy
+    kind: str  # monitor | ignore | privacy | door (door = 2-point line, crossings only)
     polygon: list[tuple[float, float]]  # normalised 0..1
     enabled: bool = True
 
