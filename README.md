@@ -83,7 +83,12 @@ flowchart LR
 ```
 
 - **Design documents** (17 + Mermaid sources): [docs/system-design](docs/system-design/README.md)
-- **Architecture Decision Records**: [docs/decisions](docs/decisions) (ADR-001…013)
+- **Architecture Decision Records**: [docs/decisions](docs/decisions) (ADR-001…015)
+- **Phase 4 behaviour checks** (fall, fight, phone use during work hours, stalling) are rules like any PPE item - same
+  state machine, evidence, schedule and UI: [ADR-015](docs/decisions/ADR-015-behaviour-checks.md), measured results and
+  limits in [docs/ml/phase4-log.md](docs/ml/phase4-log.md). Fall and fight were verified end to end in the running app
+  on real test clips (OmniFall / SCFD) via the RTSP demo path ([phase4-log §8](docs/ml/phase4-log.md)); fight alerts
+  additionally need the weights wired in (`models.yaml fight_weights`, off by default)
 - **Contracts / implementation plan**: [docs/implementation-plan.md](docs/implementation-plan.md)
 - **From the interview whiteboard to this implementation**: [docs/product/interview-baseline.md](docs/product/interview-baseline.md) maps every element of the original design exercise to what is implemented and the evidence for it — including the corrections (pose models do not track → ByteTrack per camera; IoU on the top 10–15 % of the box → keypoint head ROI with global matching; OBB not justified; frame counts → N-of-M decisive votes with seconds made explicit; "5k images ⇒ 80 % recall" and "1 FP / 2 h" not claimed; edge hardware not assumed; frozen-backbone fine-tuning measured, not assumed).
 
@@ -190,6 +195,9 @@ make down         # docker compose down
 | Detector test split | helmet mAP50 0.964, head mAP50 0.937 | `docs/ml/ppe_yolo26s_eval.json` |
 | Multi-PPE detector (Phase 3) | items mAP50 0.851 on unseen val (vest 0.97, goggles 0.98); cross-dataset gap flagged | `docs/ml/multippe_C_cppe_hb_m1280_eval.json` |
 | 4K streams (Phase 3) | 10 x 4K@25fps: CPU decode 92% host -> NVDEC 57%, 20.7 processed fps/worker; sizing for 10-50 cams | `docs/benchmarks/phase3-4k.md` |
+| Behaviour checks (Phase 4) | fall onset recall 17.4 % @ 5 fps (OmniFall ItW, zero-shot); fight F1 0.65 in-domain / 0.39 cross-dataset; phone AP50 0.60 (COCO close-up proxy) | `docs/ml/phase4-log.md` |
+| Behaviour checks live (Phase 4) | fall + fight confirmed end to end in the running app on real test clips via the RTSP demo path (evidence persisted); fight needs `fight_weights` enabled | `docs/ml/phase4-log.md` §8 |
+| 4K + behaviour rules (Phase 4) | 10 x 4K@5fps: 13.8 processed fps (20.7 without), association 22 ms p50 — quadratic pair sequencer, next fix | `docs/benchmarks/results/p4_uhd_cams10_fps5_nvdec.json` |
 | Frozen vs full fine-tune | no gain (0.964 vs 0.964 mAP50; mAP50-95 0.631 vs 0.640) | `docs/ml/*freeze*` |
 | Head classifier | top-1 0.973 (9.2 % bare heads → "helmet") | `docs/ml/head_classifier_eval.json` |
 | Event → dashboard latency | p50 24 ms, p95 52 ms, max 240 ms (195 events) | `docs/benchmarks/ui_latency.md` |
@@ -211,6 +219,7 @@ See the full analysis: [docs/benchmarks/README.md](docs/benchmarks/README.md)
 
 - **Observed missed violations:** on the demo streams, caps and head wraps are accepted as hard hats (metal-workshop camera: 0 alerts although nobody wears one) and distant, small workers rarely reach confirmation. The asynchronous teacher-review layer (ADR-013, off by default) is the designed mitigation; hard-negative training data is the next step ([analysis](docs/benchmarks/README.md)).
 - **Demo footage is stock video** of construction sites and factories, not ship cameras; detector training data are 416 px construction close-ups (domain gap). **No field accuracy, recall or false-alarm-rate claim is made.**
+- **Behaviour checks (Phase 4) are MVP**: fall/fight/phone are measured on public datasets only (fall cross-domain recall is low — see `docs/ml/phase4-log.md`), fight weights must be retrained on client footage, and stalling has no ground truth, so only its timer logic is tested. No behaviour rules are seeded by default, and fight rules additionally need the trained weights wired in (`models.yaml fight_weights`, MVP demo weights); they need site data plus a Gulf privacy review before deployment.
 - **Benchmarks are from one desktop RTX 3090** — not an edge device. TensorRT / NVDEC / DeepStream not implemented.
 - Constant network latency is not detectable without trusted camera timestamps (jitter is).
 - Cooldown/dedupe memory is re-seeded from recent events when the worker restarts, matching on person-box overlap only (head positions are not persisted); if the database is down at worker start it starts empty and a duplicate alert after a crash is still possible.

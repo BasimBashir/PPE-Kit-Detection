@@ -91,14 +91,21 @@ Camera = { id; name; stream_uri; credential_ref: string|null; has_credentials: b
 CameraCreate = { id; name; stream_uri; credential_ref?; transport?; enabled?; site?; location?; target_fps? }
 CameraUpdate = Partial<Omit<CameraCreate,"id">>
 Zone = { id; camera_id; name; kind: "monitor"|"ignore"|"privacy"; polygon: [number,number][]; enabled: boolean }
-Rule = { id; name; ppe_class: "hard_hat"|"safety_vest"|"gloves"|"goggles"|"safety_shoes"; camera_id: string|null;
+Rule = { id; name; ppe_class: "hard_hat"|"safety_vest"|"gloves"|"goggles"|"safety_shoes"
+    |"fall"|"fight"|"phone"|"stalling";  // Phase 4 behaviours are rule checks too (ADR-015)
+  camera_id: string|null;
   zone_id: string|null; severity: "low"|"medium"|"high"; enabled: boolean;
   mandatory: boolean;  // Phase 3 (ADR-014): false = secondary -> event recorded, no outbox/live alert
+  schedule: Schedule|null;  // Phase 4 (ADR-015): enforcement window; null = always. Off shift: no observations
   thresholds: { person_conf; present_conf; absent_conf; min_person_height_px; min_roi_px };  // Phase 1 names accepted on input
   temporal_policy: { mode: "count"|"duration"|"both"; confirm_n; confirm_m; min_duration_s; suspect_n;
     compliant_n; compliant_m; clear_n; clear_m; unknown_ratio; window };
   effective_confirm_seconds: number;   // confirm_n / target_fps - spec 5.1 transparency
   updated_at }
+Schedule = { tz: string;  // IANA name, e.g. "Asia/Dubai"
+  days: number[];  // 0 = Monday
+  windows: string[] }  // "HH:MM-HH:MM"; an overnight window belongs to the day it starts; end exclusive
+PpeItem = { id; label; region: string|null; kind: "ppe"|"behaviour" }  // GET /api/v1/ppe-items: the check catalogue (ADR-014/015)
 Event = { id; camera_id; camera_name; track_id: number; zone_id: string|null; rule_id; episode_id;
   status: "OPEN"|"ACKNOWLEDGED"|"RESOLVED"; severity; reason;
   confidence_summary: { no_helmet_votes: number; decisive_votes: number; mean_confidence: number;

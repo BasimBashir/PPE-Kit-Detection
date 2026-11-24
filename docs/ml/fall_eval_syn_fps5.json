@@ -1,0 +1,23 @@
+{
+  "labels": "data\\fall\\of_syn_test.csv",
+  "videos": 1200,
+  "falls": 212,
+  "tp": 8,
+  "fn": 204,
+  "fp": 1,
+  "precision": 0.8889,
+  "recall": 0.0377,
+  "f1": 0.0724,
+  "hours": 1.667,
+  "false_alarms_per_hour": 0.6,
+  "missed_seen_lying_without_event": 140,
+  "confirmable_falls": 125,
+  "confirmable_tp": 2,
+  "confirmable_recall": 0.016,
+  "short_tail_falls": 87,
+  "onset_detected": 43,
+  "onset_recall": 0.2028,
+  "fps": 5.0,
+  "weights": "yolo26s-pose.pt",
+  "hold_s": 3.0
+}

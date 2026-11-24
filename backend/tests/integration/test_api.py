@@ -110,6 +110,33 @@ def test_operator_presets_create_apply_and_validate(client):
     assert client.delete("/api/v1/presets/grinding-bay", headers=admin).status_code == 204
 
 
+def test_behaviour_rules_defaults_schedule_and_catalogue(client):
+    admin = login(client)
+    checks = {i["id"]: i["kind"] for i in client.get("/api/v1/ppe-items", headers=admin).json()}
+    assert checks["fall"] == "behaviour" and checks["stalling"] == "behaviour" and checks["hard_hat"] == "ppe"
+    r = client.post("/api/v1/rules", headers=admin, json={"id": "fall-yard", "name": "Fall", "ppe_class": "fall"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["temporal_policy"]["mode"] == "duration" and body["effective_confirm_seconds"] == 3.0
+    assert body["schedule"] is None
+    sched = {"tz": "Asia/Riyadh", "days": [6, 0, 1, 2, 3], "windows": ["07:00-12:00", "22:00-06:00"]}
+    ok = client.patch("/api/v1/rules/fall-yard", headers=admin, json={"schedule": sched})
+    assert ok.status_code == 200 and ok.json()["schedule"] == sched
+    listed = {x["id"]: x for x in client.get("/api/v1/rules", headers=admin).json()}
+    assert listed["fall-yard"]["schedule"] == sched  # survives the DB round trip
+    bad = client.patch("/api/v1/rules/fall-yard", headers=admin, json={"schedule": {**sched, "tz": "Mars/Base"}})
+    assert bad.status_code == 422
+    assert client.patch("/api/v1/rules/fall-yard", headers=admin, json={"schedule": None}).json()["schedule"] is None
+    assert client.post("/api/v1/rules", headers=admin,
+                       json={"id": "x", "name": "X", "ppe_class": "angry"}).status_code == 422
+    put = client.put("/api/v1/presets/gulf-yard", headers=admin,
+                     json={"items": {"hard_hat": "mandatory", "phone": "secondary"}})
+    assert put.status_code == 200
+    applied = client.post("/api/v1/presets/gulf-yard/apply", headers=admin, json={"camera_id": "cam01"}).json()
+    assert {a["ppe_class"] for a in applied} == {"hard_hat", "phone"}
+    assert next(a for a in applied if a["ppe_class"] == "phone")["temporal_policy"]["min_duration_s"] == 10.0
+
+
 def test_rules_validation_and_effective_seconds(client):
     admin = login(client)
     rules = client.get("/api/v1/rules", headers=admin).json()

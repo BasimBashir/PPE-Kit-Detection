@@ -1,0 +1,58 @@
+{
+  "val:rlvs": {
+    "at_0.5": {
+      "threshold": 0.5,
+      "clips": 400,
+      "accuracy": 0.7,
+      "precision": 0.7817,
+      "recall": 0.555,
+      "f1": 0.6491,
+      "tp": 111,
+      "fp": 31,
+      "fn": 89,
+      "tn": 169
+    },
+    "best_f1": {
+      "threshold": 0.55,
+      "clips": 400,
+      "accuracy": 0.7025,
+      "precision": 0.7872,
+      "recall": 0.555,
+      "f1": 0.651,
+      "tp": 111,
+      "fp": 30,
+      "fn": 89,
+      "tn": 170
+    },
+    "sequences_train": 6987,
+    "epochs": 40
+  },
+  "test:scfd": {
+    "at_0.5": {
+      "threshold": 0.5,
+      "clips": 300,
+      "accuracy": 0.5233,
+      "precision": 0.5412,
+      "recall": 0.3067,
+      "f1": 0.3915,
+      "tp": 46,
+      "fp": 39,
+      "fn": 104,
+      "tn": 111
+    },
+    "at_0.7_rule_default": {
+      "threshold": 0.7,
+      "clips": 300,
+      "accuracy": 0.53,
+      "precision": 0.557,
+      "recall": 0.2933,
+      "f1": 0.3843,
+      "tp": 44,
+      "fp": 35,
+      "fn": 106,
+      "tn": 115
+    },
+    "weights": "fight_gru@b72ce7e0d017",
+    "torch": "2.14.1+cu130"
+  }
+}

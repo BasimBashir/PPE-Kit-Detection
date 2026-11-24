@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.api.deps import ApiError, AppContext, ctx, db, require
-from app.config.settings import PPE_ITEMS, RuleSeed
+from app.config.settings import BEHAVIOURS, PPE_ITEMS, RuleSeed
 from app.models import Camera, User
 from app.repositories import events as ev_repo
 from app.repositories import rules as rules_repo
@@ -141,8 +141,9 @@ def upsert_rule(body: RuleSeed, c: AppContext = Depends(ctx), s: Session = Depen
 
 @router.get("/ppe-items")
 def ppe_items(_u: User = Depends(require("viewer"))):
-    """The enforceable item catalogue (models.yaml ppe_items): what rules and presets can choose from."""
-    return [{"id": k, "label": v.label, "region": v.region} for k, v in PPE_ITEMS.items()]
+    """The check catalogue: PPE items (models.yaml ppe_items) and Phase 4 behaviours - what rules can enforce."""
+    return ([{"id": k, "label": v.label, "region": v.region, "kind": "ppe"} for k, v in PPE_ITEMS.items()]
+            + [{"id": k, "label": v.label, "region": None, "kind": "behaviour"} for k, v in BEHAVIOURS.items()])
 
 
 @router.get("/presets")

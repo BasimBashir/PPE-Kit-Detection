@@ -3,7 +3,7 @@ import { api, auth } from "../services/api";
 import { StatusBadge } from "../components/StatusBadge";
 import { ZoneDrawer } from "../components/ZoneDrawer";
 import { fmtDateTime } from "../components/format";
-import type { Camera, CameraCreate, CameraTestResult, PPEItemInfo, Preset, Role, Rule, SettingsOut, TemporalPolicy, Thresholds, User, Zone } from "../types/api";
+import type { Camera, CameraCreate, CameraTestResult, PPEItemInfo, Preset, Role, Rule, Schedule, SettingsOut, TemporalPolicy, Thresholds, User, Zone } from "../types/api";
 
 const EMPTY: CameraCreate = { id: "", name: "", stream_uri: "rtsp://", credential_ref: "env:RTSP_READ", transport: "tcp", enabled: true };
 
@@ -85,7 +85,32 @@ export function CameraConfig() {
 }
 
 const NUM = (v: string) => Number(v);
-const EMPTY_RULE = { id: "", name: "", ppe_class: "hard_hat", camera_id: null as string | null, zone_id: null as string | null, severity: "medium" as Rule["severity"], enabled: true, mandatory: true };
+const EMPTY_RULE = { id: "", name: "", ppe_class: "hard_hat", camera_id: null as string | null, zone_id: null as string | null, schedule: null as Schedule | null, severity: "medium" as Rule["severity"], enabled: true, mandatory: true };
+
+const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+export const DEFAULT_SCHEDULE: Schedule = { tz: "Asia/Dubai", days: [0, 1, 2, 3, 4], windows: ["07:00-12:00", "13:00-17:00"] };
+
+/** Shift hours a rule is enforced in (site-local time). Breaks = the gaps between windows. */
+export function ScheduleEditor({ value, onChange }: { value: Schedule | null; onChange: (s: Schedule | null) => void }) {
+  return (
+    <fieldset className="form-grid">
+      <legend>Schedule</legend>
+      <label><input type="checkbox" checked={value !== null} onChange={(e) => onChange(e.target.checked ? DEFAULT_SCHEDULE : null)} /> only during shift hours <small className="muted">unchecked = always enforced</small></label>
+      {value && (
+        <>
+          <label>Time zone (IANA, e.g. Asia/Dubai, Asia/Riyadh)<input value={value.tz} onChange={(e) => onChange({ ...value, tz: e.target.value })} /></label>
+          {/* committed on blur: parsing on every keystroke would swallow the space between windows */}
+          <label>Shift windows, breaks left out (e.g. 07:00-12:00 13:00-17:00)<input key={value.windows.join(" ")} defaultValue={value.windows.join(" ")} onBlur={(e) => onChange({ ...value, windows: e.target.value.trim().split(/\s+/).filter(Boolean) })} /></label>
+          <div role="group" aria-label="Days">
+            {DAYS.map((d, i) => (
+              <label key={d}><input type="checkbox" checked={value.days.includes(i)} onChange={(e) => onChange({ ...value, days: e.target.checked ? [...value.days, i].sort((a, b) => a - b) : value.days.filter((x) => x !== i) })} />{d}</label>
+            ))}
+          </div>
+        </>
+      )}
+    </fieldset>
+  );
+}
 
 export function RulesSettings() {
   const [rules, setRules] = useState<Rule[]>([]);
@@ -112,7 +137,7 @@ export function RulesSettings() {
 
   const save = async (r: Rule) => {
     try {
-      const out = await api.patchRule(r.id, { thresholds: r.thresholds, temporal_policy: r.temporal_policy, enabled: r.enabled, mandatory: r.mandatory, severity: r.severity });
+      const out = await api.patchRule(r.id, { thresholds: r.thresholds, temporal_policy: r.temporal_policy, enabled: r.enabled, mandatory: r.mandatory, severity: r.severity, schedule: r.schedule });
       setRules((rs) => rs.map((x) => (x.id === out.id ? out : x)));
       setMsg(`Saved ${r.id}: confirmation needs ≈ ${out.effective_confirm_seconds} s at the configured FPS`); setErr(null);
     } catch (e) { setErr((e as Error).message); }
@@ -173,6 +198,7 @@ export function RulesSettings() {
               <label key={k}>{k.replace(/_/g, " ")}<input type="number" step="any" value={r.temporal_policy[k] as number} onChange={(e) => tp(r, k, NUM(e.target.value))} /></label>
             ))}
           </div>
+          <ScheduleEditor value={r.schedule} onChange={(s) => upd(r.id, (x) => ({ ...x, schedule: s }))} />
           <button className="btn primary" onClick={() => save(r)}>Save rule</button>
         </section>
       ))}
@@ -180,7 +206,10 @@ export function RulesSettings() {
         <h2>New rule</h2>
         <label>ID<input value={ruleForm.id} pattern="[a-z0-9][a-z0-9_-]{0,63}" required onChange={(e) => setRuleForm({ ...ruleForm, id: e.target.value })} /></label>
         <label>Name<input value={ruleForm.name} required onChange={(e) => setRuleForm({ ...ruleForm, name: e.target.value })} /></label>
-        <label>Item<select value={ruleForm.ppe_class} onChange={(e) => setRuleForm({ ...ruleForm, ppe_class: e.target.value })}>{items.map((i) => <option key={i.id} value={i.id}>{i.label}</option>)}</select></label>
+        <label>Check<select value={ruleForm.ppe_class} onChange={(e) => setRuleForm({ ...ruleForm, ppe_class: e.target.value })}>
+          <optgroup label="PPE">{items.filter((i) => i.kind !== "behaviour").map((i) => <option key={i.id} value={i.id}>{i.label}</option>)}</optgroup>
+          <optgroup label="Behaviour">{items.filter((i) => i.kind === "behaviour").map((i) => <option key={i.id} value={i.id}>{i.label}</option>)}</optgroup>
+        </select></label>
         <label>Camera<select value={ruleForm.camera_id ?? ""} onChange={(e) => setRuleForm({ ...ruleForm, camera_id: e.target.value || null })}><option value="">All cameras</option>{cams.map((c) => <option key={c.id} value={c.id}>{c.id}</option>)}</select></label>
         <label>Zone ID (blank = full frame; see Zones below)<input value={ruleForm.zone_id ?? ""} onChange={(e) => setRuleForm({ ...ruleForm, zone_id: e.target.value || null })} /></label>
         <label>Severity<select value={ruleForm.severity} onChange={(e) => setRuleForm({ ...ruleForm, severity: e.target.value as Rule["severity"] })}><option>low</option><option>medium</option><option>high</option></select></label>

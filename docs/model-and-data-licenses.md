@@ -18,6 +18,16 @@ Checked 2026-11-02; Phase 3 additions 2026-11-20. Code licence, weight licence a
 | MediaMTX 1.21.3, Toxiproxy 2.13.0 | RTSP simulator, fault injection | Docker images | MIT | No | Dev/demo only |
 | PostgreSQL 17, Prometheus 3, Grafana 13 | services | Docker images | PostgreSQL / Apache-2.0 / AGPL-3.0 | No | |
 
+### Phase 4 additions (2026-11-23, ADR-015; per-run detail in `docs/ml/phase4-log.md` §1)
+
+| Asset | Used for | Source | Licence | Redistributed in this repo? | Notes |
+|---|---|---|---|---|---|
+| OmniFall (annotations + videos) | fall evaluation | OmniFall project | annotations CC BY-NC-SA 4.0; videos from their source datasets | No - `data/` git-ignored | **Eval only** (non-commercial annotations) |
+| RLVS (1,000 Violence + 1,000 NonViolence clips) | fight GRU training (MVP) | Kaggle download | original authors' terms, **no explicit reuse licence** | No | MVP training only; retrain on licensed/client footage before commercial use |
+| SCFD (150 fight / 150 noFight) | fight cross-dataset test | git clone, MIT code | code MIT; videos YouTube-sourced | No | **Test only** |
+| COCO val2017 | phone-stage proxy eval | cocodataset.org | annotations CC BY 4.0; images under Flickr terms | No | **Eval only** |
+| `fight_gru.pt` (ours) | fight classifier | `scripts/ml/train_fight.py` on RLVS | AGPL-3.0 code; training data **not** commercially licensed | Yes - `models/`, Git LFS | **MVP weights**: retrain before commercial deployment |
+
 ## Conclusions
 - Publishing this repository under AGPL-3.0 is compatible with every component above.
 - A **closed-source or commercial deployment** would require an Ultralytics Enterprise licence or replacing the detector

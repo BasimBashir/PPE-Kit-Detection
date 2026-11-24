@@ -6,10 +6,13 @@ are seeded from rules.yaml into the database and edited through the API afterwar
 
 from __future__ import annotations
 
+import re
+from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 from urllib.parse import quote
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import yaml
 from pydantic import AliasChoices, BaseModel, Field, SecretStr, field_validator, model_validator
@@ -166,6 +169,27 @@ class TeacherConfig(BaseModel):
     timeout_s: float = Field(30.0, gt=0)  # live gemini-decision-1 p95 is ~8 s; 5 s truncated real calls
 
 
+class BehaviourConfig(BaseModel):
+    """Phase 4 behaviour checks (ADR-015). Engineering constants; the operator knobs (hold time = the rule's
+    min_duration_s, shift schedule, evidence confidence = the rule's absent_conf) live on each rule (UI)."""
+
+    keypoint_min_conf: float = Field(0.4, ge=0, le=1)
+    # fall: torso upright -> lying within fall_window_s while the hips drop >= drop_frac of the standing height
+    fall_window_s: float = Field(2.0, gt=0)
+    upright_max_deg: float = Field(35.0, ge=0, le=90)  # torso angle from vertical
+    lying_min_deg: float = Field(60.0, ge=0, le=90)
+    drop_frac: float = Field(0.25, gt=0, le=1)
+    # stalling: every keypoint stays within idle_max_range body heights (5th-95th percentile) over idle_window_s
+    idle_window_s: float = Field(10.0, gt=0)
+    idle_max_range: float = Field(0.08, gt=0)
+    # phone: a phone box over a (grown) hand or head ROI; detector dropouts shorter than phone_gap_s are bridged
+    phone_roi_scale: float = Field(1.8, ge=1)
+    phone_min_ioa: float = Field(0.3, gt=0, le=1)
+    phone_gap_s: float = Field(2.0, ge=0)
+    # fight: two people closer than fight_pair_dist mean body heights form a pair scored by the fight model
+    fight_pair_dist: float = Field(1.2, gt=0)
+
+
 class AppConfig(BaseModel):
     mode: Literal["demo", "live"] = "demo"  # demo => UI shows "SIMULATED SOURCES" banner
     pipeline: PipelineConfig = PipelineConfig()
@@ -176,6 +200,7 @@ class AppConfig(BaseModel):
     evidence: EvidenceConfig = EvidenceConfig()
     demo: DemoConfig = DemoConfig()
     teacher: TeacherConfig = TeacherConfig()
+    behaviour: BehaviourConfig = BehaviourConfig()
 
 
 # ---------------------------------------------------------------- models.yaml
@@ -242,6 +267,12 @@ class ModelsConfig(BaseModel):
     classifier_uncertain_below: float = 0.75
     cascade_skip_ppe_without_person: bool = True
 
+    # Phase 4 (ADR-015): COCO detector for the phone check ("cell phone" = COCO class 67); None = phone rules
+    # stay UNCERTAIN. fight_weights: models/<file> from scripts/ml/train_fight.py; None = fight rules UNCERTAIN.
+    phone: ModelSpec | None = None
+    phone_class_map: dict[str, int] = {"phone": 67}
+    fight_weights: str | None = None
+
 
 # ---------------------------------------------------------------- cameras.yaml / rules.yaml
 
@@ -300,10 +331,96 @@ class RuleThresholds(BaseModel):
     min_roi_px: int = Field(12, ge=1, validation_alias=AliasChoices("min_roi_px", "min_head_px"))
 
 
+class Behaviour(BaseModel):
+    """Phase 4 (ADR-015): a per-person behaviour a rule can enforce, like a PPE item. Its assessor emits ABSENT =
+    the behaviour is happening (violation evidence), PRESENT = normal, UNCERTAIN = not assessable, so the PPE state
+    machine, events, dedupe and alerts apply unchanged."""
+
+    label: str
+    alert: str
+    policy: TemporalPolicy  # default temporal policy for new rules of this check (editable per rule)
+    thresholds: RuleThresholds = RuleThresholds()
+
+
+BEHAVIOURS: dict[str, Behaviour] = {
+    # "down after a fall" held min_duration_s; the fall itself is the temporal sequence in FallAssessor
+    "fall": Behaviour(label="Fall", alert="PERSON DOWN", policy=TemporalPolicy(
+        mode="duration", min_duration_s=3.0, suspect_n=1, confirm_n=3, confirm_m=5, compliant_n=3, compliant_m=5,
+        clear_n=5, clear_m=8, unknown_ratio=0.8, window=30)),
+    "fight": Behaviour(label="Fighting", alert="FIGHT", thresholds=RuleThresholds(absent_conf=0.7),
+                       policy=TemporalPolicy(mode="count", confirm_n=3, confirm_m=5, suspect_n=2, compliant_n=3,
+                                             compliant_m=5, clear_n=6, clear_m=8, window=30)),
+    "phone": Behaviour(label="Phone use", alert="PHONE USE", policy=TemporalPolicy(
+        mode="duration", min_duration_s=10.0, suspect_n=2, compliant_n=4, compliant_m=6, clear_n=6, clear_m=8,
+        unknown_ratio=0.8, window=30)),
+    # measures stillness, not intent: scope it with a work-area zone and a shift schedule
+    "stalling": Behaviour(label="Stalling work", alert="STALLING", policy=TemporalPolicy(
+        mode="duration", min_duration_s=600.0, suspect_n=3, compliant_n=5, compliant_m=8, clear_n=5, clear_m=8,
+        unknown_ratio=0.8, window=30)),
+}
+
+
+def check_meta(key: str) -> PPEItem | Behaviour:
+    """A rule's check - PPE item or behaviour; both carry .label and .alert."""
+    return PPE_ITEMS[key] if key in PPE_ITEMS else BEHAVIOURS[key]
+
+
+_WINDOW = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)-([01]\d|2[0-3]):([0-5]\d)$")
+
+
+def _minutes(window: str) -> tuple[int, int]:
+    h1, m1, h2, m2 = map(int, _WINDOW.match(window).groups())  # type: ignore[union-attr]
+    return h1 * 60 + m1, h2 * 60 + m2
+
+
+class Schedule(BaseModel):
+    """When a rule is enforced (Phase 4): shift windows in site-local time, breaks left out. A window whose end is
+    before its start runs past midnight and belongs to the day it starts. End is exclusive."""
+
+    tz: str
+    days: list[int] = Field(min_length=1, max_length=7)  # 0 = Monday ... 6 = Sunday
+    windows: list[str] = Field(min_length=1, max_length=12)  # "HH:MM-HH:MM"
+
+    @field_validator("tz")
+    @classmethod
+    def _tz(cls, v: str) -> str:
+        try:
+            ZoneInfo(v)
+        except (ZoneInfoNotFoundError, ValueError) as e:
+            raise ValueError(f"unknown time zone {v!r} (IANA name, e.g. Asia/Dubai)") from e
+        return v
+
+    @field_validator("days")
+    @classmethod
+    def _days(cls, v: list[int]) -> list[int]:
+        if len(set(v)) != len(v) or any(not 0 <= d <= 6 for d in v):
+            raise ValueError("days: unique integers 0 (Monday) .. 6 (Sunday)")
+        return v
+
+    @field_validator("windows")
+    @classmethod
+    def _windows(cls, v: list[str]) -> list[str]:
+        for w in v:
+            if not _WINDOW.match(w) or _minutes(w)[0] == _minutes(w)[1]:
+                raise ValueError(f"window {w!r}: use HH:MM-HH:MM with start != end")
+        return v
+
+    def active(self, wall: float) -> bool:
+        now = datetime.fromtimestamp(wall, ZoneInfo(self.tz))
+        t, day = now.hour * 60 + now.minute, now.weekday()
+        for w in self.windows:
+            s, e = _minutes(w)
+            if s < e and day in self.days and s <= t < e:
+                return True
+            if s > e and ((day in self.days and t >= s) or ((day - 1) % 7 in self.days and t < e)):
+                return True
+        return False
+
+
 class RuleSeed(BaseModel):
     id: str = Field(pattern=r"^[a-z0-9][a-z0-9_-]{0,63}$")
     name: str
-    ppe_class: str = "hard_hat"  # a key of the PPE item catalogue (PPE_ITEMS)
+    ppe_class: str = "hard_hat"  # the check: a PPE item (PPE_ITEMS) or a behaviour (BEHAVIOURS); name kept for API/DB
     camera_id: str | None = None  # None = all cameras
     zone_id: str | None = None  # None = full frame
     severity: Literal["low", "medium", "high"] = "high"
@@ -311,12 +428,26 @@ class RuleSeed(BaseModel):
     mandatory: bool = True  # False = secondary: violations are recorded and listed, but no alert is delivered
     thresholds: RuleThresholds = RuleThresholds()
     temporal_policy: TemporalPolicy = TemporalPolicy()
+    schedule: Schedule | None = None  # None = always enforced (Phase 4: shift hours, breaks left out)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _behaviour_defaults(cls, data: Any) -> Any:
+        """New behaviour rules start from that behaviour's tuned policy/thresholds, not the PPE defaults."""
+        if isinstance(data, dict) and data.get("ppe_class") in BEHAVIOURS:
+            b = BEHAVIOURS[data["ppe_class"]]
+            data = {**data}
+            if data.get("temporal_policy") is None:
+                data["temporal_policy"] = b.policy.model_dump()
+            if data.get("thresholds") is None:
+                data["thresholds"] = b.thresholds.model_dump()
+        return data
 
     @field_validator("ppe_class")
     @classmethod
-    def _known_item(cls, v: str) -> str:
-        if v not in PPE_ITEMS:
-            raise ValueError(f"unknown PPE item {v!r}; configured: {', '.join(PPE_ITEMS)}")
+    def _known_check(cls, v: str) -> str:
+        if v not in PPE_ITEMS and v not in BEHAVIOURS:
+            raise ValueError(f"unknown check {v!r}; configured: {', '.join([*PPE_ITEMS, *BEHAVIOURS])}")
         return v
 
 

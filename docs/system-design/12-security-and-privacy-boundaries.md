@@ -45,6 +45,22 @@ DB outage: tokens validated in the last 5 minutes stay valid (read-mostly degrad
 ## Security / privacy
 Covered above. Known gaps: no TLS termination built in; single admin seeded from `.env`.
 
+### Phase 4 behaviour checks - Gulf deployment checklist (ADR-015)
+Behaviour events (fall, fight, phone use during work hours, stalling) describe **people**, so they carry more legal
+weight than a missing helmet. Before enabling them at a site:
+- **Legal basis:** employee monitoring needs a documented, counsel-confirmed basis. UAE: Federal Decree-Law 45/2021
+  (PDPL); KSA: PDPL (Royal Decree M/19) - both restrict processing employee data and require a stated purpose. DIFC
+  (DP Law 5/2020) and ADGM (DPR 2021) free zones have their own regimes; confirm which applies per site.
+- **Notice:** visible signage at monitored areas plus written notice to staff, naming the checks enabled and their
+  purpose (safety, not performance scoring).
+- **Purpose limitation:** an alert with evidence for a human to review, never an automated judgement or a
+  disciplinary record. Fall/fight are safety signals; phone/stalling are policy - report them separately.
+- **Proportionality:** scope phone/stalling rules to work-area zones and shift schedules (per-rule `schedule`); off
+  shift the rule emits no observations at all.
+- **Retention:** the same `evidence_retention_days` policy as PPE; deleted on schedule.
+- **Access:** evidence served by id only; no face identification and no biometric template is stored - pose
+  keypoints and boxes are dropped after assessment.
+
 ## Performance implications
 argon2 verification ≈ tens of ms per login only.
 

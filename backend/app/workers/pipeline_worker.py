@@ -27,12 +27,17 @@ from sqlalchemy import select
 
 from app.alerts.event_service import ConfirmedViolation, EventService
 from app.alerts.spool import EventSpool
+from app.behaviour import make_behaviour_assessor
+from app.behaviour.fight import FightModel
 from app.camera.health import CameraHealth
 from app.camera.source import CameraRuntimeConfig, CameraSource, CameraWatchdog, FaultHooks
 from app.config.settings import (
+    BEHAVIOURS,
+    PPE_ITEMS,
     AppConfig,
     ModelsConfig,
     RuleSeed,
+    Schedule,
     Settings,
     get_settings,
     load_app_config,
@@ -68,10 +73,11 @@ class RuleRuntime:
     id: str
     severity: str
     zone_id: str | None
-    associator: Associator
+    associator: Any  # Associator (PPE) or BehaviourAssessor (Phase 4)
     fsm: PPEStateMachine
     ppe_class: str = "hard_hat"
     mandatory: bool = True  # False = secondary rule: events recorded, no alert delivery
+    schedule: Schedule | None = None  # None = always enforced
 
 
 @dataclass
@@ -107,6 +113,11 @@ class PipelineWorker:
         self.model_versions = dict(getattr(self.detector, "model_versions", lambda: {})())
         if self.classifier is not None:
             self.model_versions["classifier"] = self.classifier.version
+        # Phase 4 fight model (CPU, tiny). Configured but missing weights fail loudly at start, like detector weights.
+        self.fight = FightModel(settings.resolve(settings.ppe_models_dir) / models_cfg.fight_weights) \
+            if models_cfg.fight_weights else None
+        if self.fight is not None:
+            self.model_versions["fight"] = self.fight.version
         self.evidence = EvidenceStore(settings.resolve(settings.ppe_evidence_dir), app_cfg.evidence)
         self.spool = EventSpool(settings.resolve(settings.ppe_spool_dir))
         channels = ["dashboard"] + (["local_sound"] if app_cfg.alerts.local_sound_enabled else [])
@@ -121,7 +132,7 @@ class PipelineWorker:
         self.watchdog = CameraWatchdog()
         self.sampler = ResourceSampler("worker", {"evidence": self.evidence.root})
         self.stage_ms: dict[str, RollingWindow] = {k: RollingWindow(60.0) for k in
-                                                   ("person", "ppe", "items", "classifier", "tracking",
+                                                   ("person", "ppe", "items", "phone", "classifier", "tracking",
                                                     "association", "total")}
         self.batch_sizes = RollingWindow(60.0)
         self.stop_evt = threading.Event()
@@ -166,6 +177,12 @@ class PipelineWorker:
     def _target_fps(self, cam: Camera) -> float:
         return float(cam.target_fps or self.cfg.pipeline.target_fps)
 
+    def _assessor(self, r: RuleSeed):
+        if r.ppe_class in BEHAVIOURS:
+            return make_behaviour_assessor(r.ppe_class, self.cfg.behaviour, r.thresholds, self.cfg.association,
+                                           self.fight)
+        return Associator(self.cfg.association, r.thresholds, self.classifier, r.ppe_class)
+
     def _build_rules(self, cr: CamRuntime, rules: list[RuleSeed], old: list[RuleRuntime] | None = None) -> None:
         prev = {r.id: r for r in old or []}
         out = []
@@ -174,14 +191,13 @@ class PipelineWorker:
                 continue
             if r.id in prev and prev[r.id].ppe_class == r.ppe_class:  # hot reload keeps track states
                 rr = prev[r.id]
-                rr.severity, rr.zone_id, rr.mandatory = r.severity, r.zone_id, r.mandatory
+                rr.severity, rr.zone_id, rr.mandatory, rr.schedule = r.severity, r.zone_id, r.mandatory, r.schedule
                 rr.associator.set_thresholds(r.thresholds)
                 rr.fsm.set_policy(r.temporal_policy)
             else:
-                rr = RuleRuntime(r.id, r.severity, r.zone_id,
-                                 Associator(self.cfg.association, r.thresholds, self.classifier, r.ppe_class),
+                rr = RuleRuntime(r.id, r.severity, r.zone_id, self._assessor(r),
                                  PPEStateMachine(cr.cfg.id, r.temporal_policy, self.cfg.tracking.track_expiry_s),
-                                 r.ppe_class, r.mandatory)
+                                 r.ppe_class, r.mandatory, r.schedule)
             out.append(rr)
         cr.rules = out
 
@@ -326,6 +342,9 @@ class PipelineWorker:
         ppe_dets = [d for d in dets if d.cls != "person"]  # each rule's associator keeps only its item's classes
         per_rule, pending = [], []
         for rr in cr.rules:
+            if rr.schedule is not None and not rr.schedule.active(frame.captured_at):
+                per_rule.append((rr, []))  # off shift: no observations; tracks expire, open episodes close
+                continue
             scoped = tracked
             if rr.zone_id:
                 scoped = [p for p in tracked if zone_of(p.box, cr.zones, frame.width, frame.height) == rr.zone_id]
@@ -371,7 +390,7 @@ class PipelineWorker:
                         cr.name, o.item_roi, rr.ppe_class, rr.mandatory))
                 elif tr.prev is S.CONFIRMED_NON_COMPLIANT and tr.new is S.CLEARED:
                     self.events.submit_cleared(cr.cfg.id, tr.track_id, rr.id, tr.ts)
-                elif tr.new is S.COMPLIANT and random.random() < self.teacher_sample_rate:
+                elif tr.new is S.COMPLIANT and rr.ppe_class in PPE_ITEMS and random.random() < self.teacher_sample_rate:
                     o = rr.fsm.tracks[tr.track_id].last_observation
                     if o is not None and o.item_roi is not None:
                         if masked is None:

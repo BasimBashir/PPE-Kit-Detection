@@ -1,0 +1,23 @@
+{
+  "labels": "data\\fall\\of_itw_test.csv",
+  "videos": 572,
+  "falls": 829,
+  "tp": 8,
+  "fn": 821,
+  "fp": 2,
+  "precision": 0.8,
+  "recall": 0.0097,
+  "f1": 0.0191,
+  "hours": 1.832,
+  "false_alarms_per_hour": 1.09,
+  "missed_seen_lying_without_event": 448,
+  "confirmable_falls": 461,
+  "confirmable_tp": 7,
+  "confirmable_recall": 0.0152,
+  "short_tail_falls": 368,
+  "onset_detected": 229,
+  "onset_recall": 0.2762,
+  "fps": 10.0,
+  "weights": "yolo26s-pose.pt",
+  "hold_s": 3.0
+}

@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { StatusBadge } from "./components/StatusBadge";
-import { UsersAdmin } from "./features/Admin";
+import { DEFAULT_SCHEDULE, ScheduleEditor, UsersAdmin } from "./features/Admin";
 import { TeacherRow } from "./features/Events";
 import { initialLive, liveReducer } from "./hooks/liveReducer";
 import { LiveProvider, useLive, wsUrl } from "./hooks/useLiveSocket";
@@ -139,5 +139,23 @@ describe("UsersAdmin", () => {
     expect(post[0]).toBe("/api/v1/users");
     expect(JSON.parse(post[1]!.body as string)).toEqual({ username: "new1", password: "long-enough-1", role: "operator" });
     vi.unstubAllGlobals();
+  });
+});
+
+describe("ScheduleEditor", () => {
+  it("enables a default shift, toggles days and parses windows on blur", () => {
+    const onChange = vi.fn();
+    const { rerender } = render(<ScheduleEditor value={null} onChange={onChange} />);
+    fireEvent.click(screen.getByLabelText(/only during shift hours/));
+    expect(onChange).toHaveBeenLastCalledWith(DEFAULT_SCHEDULE);
+    rerender(<ScheduleEditor value={DEFAULT_SCHEDULE} onChange={onChange} />);
+    fireEvent.click(screen.getByLabelText("Mon"));
+    expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_SCHEDULE, days: DEFAULT_SCHEDULE.days.filter((d) => d !== 0) });
+    const windows = screen.getByLabelText(/Shift windows/);
+    fireEvent.change(windows, { target: { value: "06:00-14:00  22:00-06:00 " } });
+    fireEvent.blur(windows);
+    expect(onChange).toHaveBeenLastCalledWith({ ...DEFAULT_SCHEDULE, windows: ["06:00-14:00", "22:00-06:00"] });
+    fireEvent.click(screen.getByLabelText(/only during shift hours/));
+    expect(onChange).toHaveBeenLastCalledWith(null);
   });
 });

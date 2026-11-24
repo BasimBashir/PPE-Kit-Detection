@@ -51,8 +51,12 @@ PROFILES: dict[str, dict] = {
     "p3_uhd_cams10_fps5_nvdec": {"cams": 10, "fps": 5, "rules": "construction", "items": True, "hwaccel": "cuda"},
     "p3_uhd_cams10_fps5_nvdec_conv1": {"cams": 10, "fps": 5, "rules": "construction", "items": True,
                                        "hwaccel": "cuda", "convert": 1.0},
+    # Phase 4: construction preset + all four behaviour rules + the phone stage (ADR-015)
+    "p4_uhd_cams10_fps5_nvdec": {"cams": 10, "fps": 5, "rules": "construction", "items": True,
+                                 "hwaccel": "cuda", "phone": True, "behaviours": True},
 }
 ITEMS_MODEL = {"weights": "ppe_items_yolo26m.pt", "imgsz": 1280, "conf": 0.25}  # see docs/ml/phase3-log.md
+PHONE_MODEL = {"weights": "yolo26s.pt", "imgsz": 1280, "conf": 0.25}  # Phase 4 phone stage (COCO class 67)
 
 
 def load_env() -> None:
@@ -81,7 +85,15 @@ def run_profile(name: str, seconds: float, warmup: float) -> dict:
     import multiprocessing as mp
     import queue
 
-    from app.config.settings import Settings, load_app_config, load_camera_seeds, load_models_config, load_rule_seeds
+    from app.config.settings import (
+        ModelSpec,
+        RuleSeed,
+        Settings,
+        load_app_config,
+        load_camera_seeds,
+        load_models_config,
+        load_rule_seeds,
+    )
     from app.core.logging import setup_logging
     from app.db.base import make_engine, make_session_factory, session_scope
     from app.db.migrate import upgrade_to_head
@@ -107,10 +119,11 @@ def run_profile(name: str, seconds: float, warmup: float) -> dict:
     rules, zones = load_rule_seeds(s)
     if "rules" in p:  # a site preset: every PPE item gets a rule (mandatory or secondary)
         import yaml
-        from app.config.settings import RuleSeed
 
         preset = yaml.safe_load((ROOT / "configs" / "presets" / f"{p['rules']}.yaml").read_text(encoding="utf-8"))
         rules = [RuleSeed.model_validate(r) for r in preset["rules"]]
+    if p.get("behaviours"):  # Phase 4: one rule per behaviour check, on top of the preset
+        rules += [RuleSeed(id=f"{b}-check", name=b, ppe_class=b) for b in ("fall", "fight", "phone", "stalling")]
     cams = load_camera_seeds(s)
     with session_scope(sf) as ss:
         seed_if_empty(ss, cams, rules, zones, None)
@@ -131,9 +144,9 @@ def run_profile(name: str, seconds: float, warmup: float) -> dict:
     if p.get("classifier") is False:
         models.classifier = None
     if p.get("items"):
-        from app.config.settings import ModelSpec
-
         models.items = ModelSpec(**ITEMS_MODEL)
+    if p.get("phone"):
+        models.phone = ModelSpec(**PHONE_MODEL)
 
     tq, cq = mp.Queue(1024), mp.Queue()
     w = PipelineWorker(s, app_cfg, models, tq, cq)

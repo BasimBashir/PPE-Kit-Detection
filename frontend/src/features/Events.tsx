@@ -4,7 +4,7 @@ import { api, auth, imageUrl, type EventQuery } from "../services/api";
 import { useLive } from "../hooks/useLiveSocket";
 import { EventStatus } from "../components/StatusBadge";
 import { fmtDateTime, fmtNum, fmtSec } from "../components/format";
-import { PPE_LABEL, type EventDetail, type Page, type PPEEvent, type TeacherReview, type TeacherVerdict } from "../types/api";
+import { BEHAVIOUR_IDS, PPE_LABEL, type EventDetail, type Page, type PPEEvent, type TeacherReview, type TeacherVerdict } from "../types/api";
 
 const item = (c?: string) => (c ? PPE_LABEL[c] ?? c : "");
 
@@ -116,7 +116,7 @@ export function Events() {
             <dt>Status</dt><dd><EventStatus status={detail.status} /></dd>
             <dt>Rule</dt><dd>{detail.rule_id}{detail.confidence_summary.ppe_class && ` · ${item(detail.confidence_summary.ppe_class)}`}{detail.confidence_summary.secondary && " · secondary (no live alert)"}</dd>
             <dt>Reason</dt><dd>{detail.reason}</dd>
-            <dt>Votes</dt><dd>{detail.confidence_summary.no_helmet_votes} of {detail.confidence_summary.decisive_votes} decisive observations without {item(detail.confidence_summary.ppe_class ?? "hard_hat").toLowerCase()}</dd>
+            <dt>Votes</dt><dd>{detail.confidence_summary.no_helmet_votes} of {detail.confidence_summary.decisive_votes} decisive observations {BEHAVIOUR_IDS.has(detail.confidence_summary.ppe_class ?? "") ? "showing" : "without"} {item(detail.confidence_summary.ppe_class ?? "hard_hat").toLowerCase()}</dd>
             <dt>Mean confidence</dt><dd>{fmtNum(detail.confidence_summary.mean_confidence, 2)} · ROI from {detail.confidence_summary.roi_source}{detail.confidence_summary.classifier_used ? " · classifier used" : ""}</dd>
             <dt>First seen → confirmed</dt><dd>{fmtDateTime(detail.first_seen_at)} → {fmtDateTime(detail.confirmed_at)} ({fmtSec(detail.latency.time_to_confirm_s)})</dd>
             <dt>Frame → persisted</dt><dd>{fmtSec(detail.latency.frame_to_persist_s ?? null)}</dd>
