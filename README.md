@@ -200,7 +200,7 @@ make down         # docker compose down
 | Detector test split | helmet mAP50 0.964, head mAP50 0.937 | `docs/ml/ppe_yolo26s_eval.json` |
 | Multi-PPE detector (Phase 3) | items mAP50 0.851 on unseen val (vest 0.97, goggles 0.98); cross-dataset gap flagged | `docs/ml/multippe_C_cppe_hb_m1280_eval.json` |
 | 4K streams (Phase 3) | 10 x 4K@25fps: CPU decode 92% host -> NVDEC 57%, 20.7 processed fps/worker; sizing for 10-50 cams | `docs/benchmarks/phase3-4k.md` |
-| Behaviour checks (Phase 4) | fall onset recall 17.4 % @ 5 fps (OmniFall ItW, zero-shot); fight F1 0.65 in-domain / 0.39 cross-dataset; phone AP50 0.60 (COCO close-up proxy) | `docs/ml/phase4-log.md` |
+| Behaviour checks (Phase 4) | fall onset recall 17.4 % @ 5 fps (OmniFall ItW, zero-shot); fight F1 0.65 in-domain / 0.38 cross-dataset; phone AP50 0.60 (COCO close-up proxy) | `docs/ml/phase4-log.md` |
 | Behaviour checks live (Phase 4) | fall + fight confirmed end to end in the running app on real test clips via the RTSP demo path (evidence persisted); fight needs `fight_weights` enabled | `docs/ml/phase4-log.md` §8 |
 | 4K + behaviour rules (Phase 4) | 10 x 4K@5fps: 13.8 processed fps (20.7 without), association 22 ms p50 — quadratic pair sequencer, next fix | `docs/benchmarks/results/p4_uhd_cams10_fps5_nvdec.json` |
 | Frozen vs full fine-tune | no gain (0.964 vs 0.964 mAP50; mAP50-95 0.631 vs 0.640) | `docs/ml/*freeze*` |

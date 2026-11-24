@@ -12,7 +12,7 @@ site footage is collected and the models are re-measured (see 7).
 | Source | Content | Licence | Used? |
 |---|---|---|---|
 | **OmniFall** (`data/fall/`) | real-world falls ("in the wild", 572 test videos / 829 falls) + synthetic (1,200 videos / 212 falls), annotations with per-fall onset/lying intervals | annotations CC BY-NC-SA 4.0; videos from the source datasets - **eval only** | yes - fall test |
-| **RLVS** (Kaggle, user's zip) | 1,000 Violence + 1,000 NonViolence clips | original authors' terms, no explicit reuse licence - **MVP training only** | yes - fight training |
+| **RLVS** (Kaggle; 2026-11-24 re-fetch: HF mirror `34data/real-life-violence`, 2000 clips) | 1,000 Violence + 1,000 NonViolence clips | original authors' terms, no explicit reuse licence - **MVP training only** | yes - fight training |
 | **SCFD** (git clone, MIT code) | 150 fight / 150 noFight YouTube clips | repo MIT; videos are YouTube-sourced - **test only** | yes - fight cross-dataset test |
 | **COCO val2017** | 4,952 labelled images, "cell phone" = class 67 | annotations CC BY 4.0, images under Flickr terms - **eval only** | yes - phone proxy |
 | `yolo26s.pt` (Ultralytics COCO) | person + 79 COCO classes | AGPL-3.0, same as the existing stack | yes - phone stage |
@@ -49,6 +49,11 @@ Method (`app/behaviour/fight.py`, ADR-015 §5): people closer than 1.2 mean body
 2 x 17 keypoints pair-centred and body-height normalised (102 floats x 8 samples = 1.4 s @ 5 Hz); the same
 `pair_features`/`PairSequencer` code builds training data (`scripts/ml/extract_fight_sequences.py`) and serves
 (`FightAssessor`). Training: `scripts/ml/train_fight.py` (40 epochs, clip-level split, no leakage).
+
+Weights file replaced 2026-11-24: the first MVP file was never committed (the `*.pt` ignore rule) and was lost
+with a git worktree, so the model was retrained from the same pipeline on the RLVS mirror (2000 clips -> 10,301
+sequences; this run's JSON is `fight_eval.json`): val F1 0.6493 @ 0.45, SCFD cross-dataset F1 0.383 @ 0.5 /
+0.377 @ 0.7 (the rule default) - statistically the same as the first run. `fight_gru@72549e134e41`.
 
 | run | clips | threshold | precision | recall | F1 |
 |---|---|---|---|---|---|

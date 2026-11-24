@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Fight GRU weights retrained and committed (`models/fight_gru.pt`, LFS): the original MVP file was never
+  committed (the `*.pt` ignore rule) and was lost with a worktree. Same pipeline, RLVS mirror data: val F1
+  0.65 @ 0.45, SCFD cross-dataset F1 0.38 - same quality as the first run. The phone-stage detector
+  (`models/yolo26s.pt`) is now tracked too; both had been silently untracked since Nov 2.
+
 - Phase 4 verified live end to end: fall and fight rules confirmed **in the running app** on real test clips
   (OmniFall syn / SCFD test) through the RTSP demo path, evidence snapshots persisted - `docs/ml/phase4-log.md` §8.
   Fight alerts need `models.yaml fight_weights` (off by default, MVP weights).
