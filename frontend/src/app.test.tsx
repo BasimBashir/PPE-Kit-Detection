@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { moduleSummary } from "./components/LiveView";
 import { StatusBadge } from "./components/StatusBadge";
 import { DEFAULT_SCHEDULE, ScheduleEditor, UsersAdmin } from "./features/Admin";
 import { TeacherRow } from "./features/Events";
@@ -11,6 +12,24 @@ import { CAMERA_STATES, type Camera, type MetricsSummary, type PPEEvent } from "
 const metrics = (up = true) => ({ worker: { up }, mode: "demo" }) as unknown as MetricsSummary;
 const cam = (id: string) => ({ id, name: id, enabled: true, status: null }) as unknown as Camera;
 const ev = (id: string, t: string) => ({ id, confirmed_at: t, camera_name: "cam01", track_id: 1 }) as unknown as PPEEvent;
+
+describe("moduleSummary (per-stream checks, ADR-017)", () => {
+  const tr = (id: number, cls: string, st: string) => ({ track_id: id, ppe_class: cls, ppe_state: st });
+  const frame = (tracks: object[], persons = 0) =>
+    ({ tracks, detections: Array.from({ length: persons }, () => ({ cls: "person" })) }) as never;
+  it("names each selected check with its live verdicts, never raw model classes", () => {
+    const f = frame([tr(1, "hard_hat", "CONFIRMED_NON_COMPLIANT"), tr(2, "hard_hat", "COMPLIANT"),
+      tr(1, "safety_vest", "SUSPECTED_NON_COMPLIANT")]);
+    expect(moduleSummary(f, ["hard_hat", "safety_vest"])).toBe("Hard hat: 1 NO HAT · 1 OK   |   Safety vest: 1 checking");
+  });
+  it("reports attendance as people in view and an idle check as nobody in view", () => {
+    expect(moduleSummary(frame([], 2), ["person"])).toBe("Attendance: 2 in view");
+    expect(moduleSummary(frame([]), ["fall"])).toBe("Fall: no one in view");
+  });
+  it("falls back to the checks present when the stream runs the full cascade", () => {
+    expect(moduleSummary(frame([tr(3, "phone", "CONFIRMED_NON_COMPLIANT")]), [])).toBe("Phone use: 1 PHONE");
+  });
+});
 
 describe("StatusBadge", () => {
   it.each(CAMERA_STATES)("renders text (not color alone) for %s", (s) => {

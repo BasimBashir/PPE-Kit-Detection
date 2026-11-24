@@ -26,7 +26,9 @@ change).
    typo degrades to today's behaviour, never to blindness).
 3. **UI: multi-select checkboxes on the camera form; the wall shows the selection.** The Cameras admin form lists
    the catalogue (`GET /ppe-items` + "Person (tracking / attendance only)"); the camera wall shows each stream's
-   selection next to its name, and its tile's "detecting:" strip lists only the selected classes. Changing the
+   checks next to its name, and its tile's strip reports each check's live verdicts in operator terms (e.g.
+   "Hard hat: 1 NO HAT · 2 OK | Safety vest: 1 checking", "Attendance: 1 in view"), never raw model classes; the
+   preview keeps one entry per (person, check) so a multi-check stream shows every check. Changing the
    selection hot-restarts just that camera.
 4. **Rules are not auto-filtered.** A rule whose check is outside its camera's selection simply never sees
    detections (they are dropped upstream). The wall tile makes the selection visible; keeping rule and module

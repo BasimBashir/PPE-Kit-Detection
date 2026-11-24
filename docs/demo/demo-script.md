@@ -26,21 +26,23 @@
 ## Per-stream module demo (the current rig, ADR-017)
 
 1 stream = 1 class: each camera runs only its selected check's inference stage (Cameras page → "Modules this stream
-detects"; the wall tile shows the selection and a class-list strip).
+detects"; the wall tile shows the checks and a live verdict strip, e.g. "Hard hat: 1 NO HAT · 2 OK").
 
 | Stream | Module | What it shows |
 |---|---|---|
-| cam01 | `hard_hat` | NO HARD HAT fires (workers without helmets); tile lists only head/person classes |
-| cam02 | `safety_shoes` | NO SAFETY SHOES (no_boots) |
+| cam01 | `hard_hat` | NO HARD HAT fires (workers without helmets) |
+| cam02 | `safety_vest` | vest check on the formwork crew |
 | cam03 | `phone` | PHONE USE (real phone-in-hand clip; 10 s duration policy) |
-| cam04 | `safety_vest` | NO SAFETY VEST (no_vest) |
-| cam05 | `gloves` | NO GLOVES (no_gloves bursts) |
-| cam06 | `goggles` | NO GOGGLES (tuned 4-of-6 confirm for transient bare-eye boxes) |
+| cam04 | `hard_hat` + `safety_vest` | two checks on one stream; one box per person, both alerts in its label |
+| cam05 | `gloves` | gloves check on the assembly line |
+| cam06 | `gloves` | gloves check (clip was picked for goggles - hand detections are weaker) |
 | cam07 | `fall` | PERSON DOWN (public fall clip) |
 | cam08 | `fight` | FIGHT in bursts (in-domain clip) |
-| cam09 | `hard_hat` | **bandana reads as helmet → false-COMPLIANT**: the phase-1 negative-class gap — say it out loud |
-| cam10 | `hard_hat` | helmets worn → COMPLIANT, silent |
+| cam10 | `hard_hat` + `safety_vest` | helmets worn → COMPLIANT on hard hat, vest check alongside |
 | door1 | `person` | attendance: ENTER/EXIT crossings, outside-minutes vs daily budget |
+
+9 simulated streams (cam09 retired) + the door1 file source. The bandana negative-class gap (phase 1) still stands;
+show it with any `hard_hat` stream on `streams/removed/cam09.mp4` if asked.
 
 The demo clips for this rig live outside the repo (`STREAMS_DIR`); stock/royalty-free sources, fetched separately —
 the committed `data/streams` set from `fetch_demo_videos.py` also works with modules unset (full cascade).

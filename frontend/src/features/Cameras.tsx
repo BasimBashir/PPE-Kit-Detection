@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useLive } from "../hooks/useLiveSocket";
-import { LiveView } from "../components/LiveView";
+import { LiveView, MODULE_LABEL } from "../components/LiveView";
+
+const modulesText = (m: string[] | undefined) => (m?.length ? ` · ${m.map((x) => MODULE_LABEL[x] ?? x).join(" + ")}` : "");
 import { EventStatus, StatusBadge } from "../components/StatusBadge";
 import { fmtDuration, fmtNum, fmtPct, fmtSec, fmtTime } from "../components/format";
 
@@ -23,11 +25,11 @@ export function CameraWall() {
           return (
             <article key={c.id} className="cam-card" aria-label={`Camera ${c.id}`}>
               <Link to={`/cameras/${c.id}`} className="cam-media">
-                {live ? <LiveView cameraId={c.id} overlay={overlay} intervalMs={500} /> :
+                {live ? <LiveView cameraId={c.id} overlay={overlay} intervalMs={500} modules={c.module ?? []} /> :
                   <div className="liveview-empty">{c.enabled ? s?.state_reason ?? "waiting for worker" : "disabled"}</div>}
               </Link>
               <div className="cam-meta">
-                <div className="cam-title"><strong>{c.id}</strong> <span className="muted">{c.name}{c.module?.length ? ` · ${c.module.join(", ")}` : ""}</span></div>
+                <div className="cam-title"><strong>{c.id}</strong> <span className="muted">{c.name}{modulesText(c.module)}</span></div>
                 <StatusBadge state={c.enabled ? s?.state : "DISABLED"} reason={s?.state_reason} />
               </div>
               <dl className="cam-stats">
@@ -58,13 +60,13 @@ export function CameraDetail() {
   return (
     <div className="page">
       <div className="page-head">
-        <h1>{c.id} <span className="muted">{c.name}</span></h1>
+        <h1>{c.id} <span className="muted">{c.name}{modulesText(c.module)}</span></h1>
         <StatusBadge state={c.enabled ? s?.state : "DISABLED"} reason={s?.state_reason} />
         <label className="toggle"><input type="checkbox" checked={overlay} onChange={(e) => setOverlay(e.target.checked)} /> Overlays</label>
       </div>
       <div className="detail">
         <div className="detail-view">
-          {live ? <LiveView cameraId={id} overlay={overlay} intervalMs={250} className="large" /> :
+          {live ? <LiveView cameraId={id} overlay={overlay} intervalMs={250} className="large" modules={c.module ?? []} /> :
             <div className="liveview-empty large">{s?.state_reason ?? "no live frames"}</div>}
           <p className="legend"><span className="lg ok">■ compliant</span> <span className="lg sus">■ suspected</span> <span className="lg conf">■ confirmed no hard hat</span> <span className="lg unk">■ unknown / not assessable</span> · dashed = head ROI · blue = helmet · orange = bare head</p>
         </div>

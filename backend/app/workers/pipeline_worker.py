@@ -383,7 +383,7 @@ class PipelineWorker:
         self.stage_ms["classifier"].add(1000 * (time.perf_counter() - t0) / len(pending))
 
     def _decide(self, cr: CamRuntime, frame: Frame, dets: list, st: dict[str, Any], pcfg) -> None:
-        overlay_state: dict[int, tuple[str, Any, str]] = {}
+        overlay_state: dict[tuple[int, str], tuple[str, Any, str]] = {}  # (track, check): multi-check shows each
         masked: np.ndarray | None = None
         for rr, obs in st["per_rule"]:
             for o in obs:
@@ -423,8 +423,9 @@ class PipelineWorker:
                             cut = frame.captured_mono - 60
                             self._still_sent = {kk: t for kk, t in self._still_sent.items() if t >= cut}
                         self.events.submit_still_confirmed(cr.cfg.id, o.track_id, rr.id, o.person_box, o.head_roi)
-                if o.track_id not in overlay_state or state is S.CONFIRMED_NON_COMPLIANT:
-                    overlay_state[o.track_id] = (state.value, o, rr.ppe_class)
+                key = (o.track_id, rr.ppe_class)
+                if key not in overlay_state or state is S.CONFIRMED_NON_COMPLIANT:
+                    overlay_state[key] = (state.value, o, rr.ppe_class)
         cr.processed.add(1.0)
         m.tracker_active_tracks.labels(cr.cfg.id).set(cr.tracker.active_count)  # type: ignore[union-attr]
         now = time.monotonic()
@@ -448,7 +449,7 @@ class PipelineWorker:
         tracks = [{"track_id": tid, "box": sc(o.person_box), "ppe_state": st, "outcome": o.outcome.value,
                    "ppe_class": item, "item_roi": sc(o.item_roi), "present_box": sc(o.present_box),
                    "absent_box": sc(o.absent_box)}
-                  for tid, (st, o, item) in overlay.items()]
+                  for (tid, _), (st, o, item) in overlay.items()]
         det_list = [{"cls": d.cls, "conf": round(d.conf, 3), "box": sc(d.xyxy)} for d in dets]
         self._send({"type": "preview", "camera_id": cr.cfg.id, "frame_id": frame.frame_id,
                     "captured_at": frame.captured_at, "width": pcfg.preview_width, "height": h,
