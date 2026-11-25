@@ -122,6 +122,7 @@ class TeacherReviewer:
         row = TeacherReview(
             event_id=uuid.UUID(event_id) if event_id else None,
             kind=cand["kind"],
+            ppe_class=cand.get("ppe_class", "hard_hat"),
             camera_id=cand["camera_id"],
             track_id=int(cand["track_id"]),
             crop_path=cand["crop_path"],

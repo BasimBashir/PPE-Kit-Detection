@@ -21,6 +21,7 @@ phases 0–13 in [BUILD_STATUS.md](BUILD_STATUS.md) track how the platform was b
 | 4 | 0.4.0 | **Behavioural Safety Analytics** | Fall Detection, Violence (Fight) Detection, Mobile-Phone Use Detection, Inactivity Detection; per-rule shift schedules | Fall + fight verified live; accuracy on public datasets only | [ADR-015](docs/decisions/ADR-015-behaviour-checks.md) |
 | 5 | 0.5.0 | **Time & Attendance (Line-Crossing Analytics + Face Recognition)** | Entry/exit line on a door camera, enrolled-face identity (angle-aware, torso + track fallbacks), minutes-outside report against a daily budget | Implemented, unit + API tested; not measured on site footage | [ADR-016](docs/decisions/ADR-016-attendance.md) |
 | 6 | 0.6.0 | **Per-Stream Analytics Profiles** | Each camera runs only the modules selected for it; unselected inference stages are skipped | Implemented, tested | [ADR-017](docs/decisions/ADR-017-camera-module-selection.md) |
+| 7 | unreleased | **Retraining Flywheel** | Teacher-mined false positives / negatives per check → threshold → developer notified and approves → fine-tune on old + new data → promoted only past a developer-signed benchmark gate ([design](docs/ml/flywheel.md)) | Hard-hat classifier live end to end; detector / behaviour adapters pending | [ADR-018](docs/decisions/ADR-018-retraining-flywheel.md) |
 
 ## Quick start (one command)
 

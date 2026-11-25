@@ -189,6 +189,7 @@ class TeacherReview(Base):
     # violation: the reviewed event; compliant sample: the event it ESCALATED to (None when it stayed compliant)
     event_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("events.id", ondelete="SET NULL"), index=True)
     kind: Mapped[str] = mapped_column(String(16))  # violation | compliant
+    ppe_class: Mapped[str] = mapped_column(String(32), default="hard_hat", server_default="hard_hat")
     camera_id: Mapped[str] = mapped_column(String(32))
     track_id: Mapped[int] = mapped_column(Integer)
     crop_path: Mapped[str] = mapped_column(Text)  # relative to the evidence root (teacher/...)

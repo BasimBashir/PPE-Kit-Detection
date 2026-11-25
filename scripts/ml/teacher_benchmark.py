@@ -26,8 +26,9 @@ import httpx
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "backend"))
 
-from app.inference.teacher import INSTRUCTIONS, GeminiDecisionTeacher, decide, fuse  # noqa: E402
+from app.inference.teacher import GeminiDecisionTeacher, decide, fuse, instructions  # noqa: E402
 
+INSTRUCTIONS = instructions("hard_hat")  # the benchmark is the hard-hat head-crop question (per-item since Phase 3)
 WORK = Path.home() / "ppe-work"
 MAX_WRONG_TAG = 0.02  # tuning constraint: at most 2% of true alerts tagged LIKELY_FALSE_ALERT
 MAX_FALSE_ESCALATE = 0.02  # ... and at most 2% of truly compliant samples escalated

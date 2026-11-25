@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+- Retraining flywheel ([ADR-018](docs/decisions/ADR-018-retraining-flywheel.md), [design](docs/ml/flywheel.md)):
+  `scripts/ml/flywheel.py` mines teacher-vs-model mistakes per check, opens a review batch at a configurable
+  threshold, notifies the developer, and after approval fine-tunes and promotes weights only past a developer-signed
+  benchmark gate (archive + atomic swap + `models/registry.jsonl`). `teacher_reviews.ppe_class` (migration 0007).
+- Fix: `scripts/ml/teacher_benchmark.py` (and so `distill_finetune.py`) failed to import since Phase 3 renamed
+  `INSTRUCTIONS` to per-item `instructions()`.
+
 ## 0.6.0 - 2026-11-24
 Per-Stream Analytics Profiles ([ADR-017](docs/decisions/ADR-017-camera-module-selection.md)) and the product rename to
 **Aegis Vision**.

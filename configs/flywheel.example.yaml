@@ -1,0 +1,38 @@
+# Retraining flywheel (ADR-018, docs/ml/flywheel.md). Copy to configs/flywheel.yaml to change.
+# Notifications: set FLYWHEEL_WEBHOOK_URL (Slack / Teams incoming webhook) in the environment; without it they go to
+# the console and <work_dir>/notifications.jsonl.
+work_dir: ~/ppe-work/flywheel
+device: "0"                 # training + scoring GPU; schedule `run` off-shift if this is the live-inference GPU
+teacher_margin: 0.3         # a teacher answer counts only when |p_teacher - 0.5| >= margin (else: not mined)
+
+# Benchmark gate defaults, frozen into <work_dir>/<check>/benchmark.json when the developer approves the benchmark.
+# The candidate must be at least as good as the champion on every metric (tolerance in metric units; 0 = no
+# regression allowed) AND fix at least mined_min_gain more of the held-out mined mistakes than the champion.
+gate:
+  tolerances: {accuracy: 0.0, auroc: 0.0, missed_violations_at_0.5: 0, false_alarms_at_0.5: 0}
+  mined_min_gain: 1
+
+# Demo source (`mine --source cache`): real Gemini Decisions answers cached by scripts/ml/teacher_benchmark.py on
+# public CC0 test crops. Production uses `--source db` (teacher_reviews + operator feedback).
+demo_cache: {path: ~/ppe-work/teacher/cache.jsonl, data: ~/ppe-work/hardhat/cls/test}
+
+# trainer: classify = live end to end | detect / sequence = mined, sorted and approved, trainer adapter not wired
+# yet | rule = no weights: mined misses are for threshold / schedule tuning, nothing to retrain.
+checks:
+  hard_hat:
+    trainer: classify
+    weights: head_cls_yolo26n.pt        # models/<file>; ImageFolder classes [present, absent]
+    labels: [helmet, no_helmet]
+    base_data: ~/ppe-work/hardhat/cls   # the champion's train/ val/ test/ (test = the benchmark set)
+    imgsz: 96
+    epochs: 30
+    threshold: 40                       # mined frames that open a review batch
+  safety_vest:  {trainer: detect, weights: ppe_items_yolo26m.pt, labels: [vest, no_vest], threshold: 100}
+  gloves:       {trainer: detect, weights: ppe_items_yolo26m.pt, labels: [gloves, no_gloves], threshold: 100}
+  goggles:      {trainer: detect, weights: ppe_items_yolo26m.pt, labels: [goggles, no_goggles], threshold: 100}
+  safety_shoes: {trainer: detect, weights: ppe_items_yolo26m.pt, labels: [boots, no_boots], threshold: 100}
+  phone:        {trainer: detect, weights: yolo26s.pt, labels: [no_phone, phone], threshold: 100}
+  fight:        {trainer: sequence, weights: fight_gru.pt, labels: [no_fight, fight], threshold: 50}
+  fall:         {trainer: rule, labels: [upright, down], threshold: 20}
+  stalling:     {trainer: rule, labels: [working, stalled], threshold: 20}
+  outside_time: {trainer: rule, labels: [inside, outside], threshold: 20}
